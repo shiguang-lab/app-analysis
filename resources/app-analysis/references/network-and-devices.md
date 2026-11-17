@@ -29,7 +29,7 @@
 
 3. 用户已在自己终端启动的 AVD 只通过 `adb -s SERIAL` 交互：不要从受限会话 `kill`、重启或替换它，杀进程后本会话起不回来，只能再请用户启动。收尾时保持它在运行并明确说明交还，不主动关闭。
 4. 快照可疑（`snapshot_state.artifacts` 含 `bootcompleted.ini`/`snapshots` 且上次未正常退出）时，加 `-no-snapshot-load` 冷启动一次即可；不要删除快照目录，也不要 `-wipe-data`。
-5. 不要为了绕过权限去新建 AVD：新 AVD 用同一镜像但没有快照，冷启动更慢、更占磁盘，原有设备状态也不在。已有合适 AVD 存在时，换 AVD 只能由用户决定或在 AVD 确实不满足 ABI/SDK/服务要求时按第 3 条规则换。
+5. 不要为了绕过目录无写权限（`AVD_NOT_WRITABLE`）去新建 AVD：目录不可写属于宿主权限问题，按第 1 条交用户处理。但若第 6/7 步因 PairIP/防重签、证书限制或无 `debuggable` 需要 root + Frida 注入，而当前只有日常未 root 的 `google_apis_playstore` AVD 时，**允许且应当直接复用本机已有系统镜像新建任务专用隔离 AVD，并通过 `-ramdisk` 挂载修补后的 `ramdisk` 副本启动**（不改动原有 AVD 与原系统镜像文件，也不下载新系统镜像；详见下方[设备与运行时工具缺口](#设备与运行时工具缺口)）。
 
 ## 网络盘点与 VPN
 
@@ -73,17 +73,31 @@
 | 真机/模拟器导出 | adb、已授权 device 状态 | 复用现有 platform-tools；unauthorized 交用户确认调试 |
 | Google Play 模拟器取包 | ABI/SDK 匹配的 AVD、带 Google Play 的镜像、商店登录和应用可用性 | Google APIs 镜像不等于带 Play Store。优先已有合适 AVD，禁止 wipe-data 或修改无关 AVD |
 | 匿名 Play getItems/delivery | 当前协议支持的设备 profile、已注册匿名 device ID；versionCode 可由 getItems 自动查询 | 先复用任务已有私密会话/工具生成记录；缺少时使用官方 Aurora 客户端或维护中的 GPlayAPI 工具完成注册，不伪造 device ID |
-| 运行时注入与 AOT/Hermes 恢复（按需） | 可 root 任务设备/AVD、`frida`/`frida-server`；Flutter AOT 需 `blutter`（依赖 `cmake`/`clang`/capstone）；RN 需 Hermes 反汇编器 | 先完成不依赖 root 的 JADX、静态资源与浏览器 H5 Mock；需要突破 `user` AVD 限制时按下方缺口规则向用户说明组件与代价后申请补齐，不直接判为无真实账号不可解 |
+| 运行时注入与 AOT/Hermes 恢复（按需） | 可 root 任务设备/AVD、`frida`/`frida-server`；Flutter AOT 需 `blutter`（依赖 `cmake`/`clang`/capstone）；RN 需 Hermes 反汇编器 | 只要本机已有匹配的系统镜像（含 `google_apis_playstore`），直接在任务内基于现有镜像新建隔离 AVD、用 Magisk 修补 `ramdisk.img` 副本（`-ramdisk` 启动）并在用户目录补齐匹配 ABI 的 `frida`/`frida-server` 与 `Magisk.apk`，**无需暂停请求用户授权，也禁止为此下载新系统镜像**；仅当本机无任何可用镜像或需改动真机/原日常 AVD 时才向用户申请 |
 
-工具安装先查现有路径（PATH、ANDROID_HOME、ANDROID_SDK_ROOT、常见 SDK 目录）。第 1 步设备/ADB 硬门槛失败时，本次调研直接中断，环境修复须另按用户请求执行。门槛已经通过而某渠道缺小型用户目录工具时，可按任务授权补齐；涉及 sudo、系统级配置、大型系统镜像、新服务条款或显著下载时，先把具体组件、位置、大小/代价说明给用户。不要通过安装另一整套 SDK 解决 PATH 问题。
+工具安装先查现有路径（PATH、ANDROID_HOME、ANDROID_SDK_ROOT、常见 SDK 目录、`~/.venv*`）。第 1 步设备/ADB 硬门槛失败时，本次调研直接中断，环境修复须另按用户请求执行。门槛已经通过而任务需要小型用户目录工具（如虚拟环境安装 `frida-tools`、下载匹配 ABI 的 `frida-server` 与 `Magisk.apk`、对独立 AVD 的 `ramdisk.img` 副本做本地修补）时，**直接作为任务内标准步骤自主完成，不停下等待授权**；仅当涉及宿主机 `sudo`、修改系统级配置、下载 GB 级新系统镜像、或改动用户个人真机/原有日常 AVD 时，才先把具体组件、位置、大小/代价说明给用户并等待决策。不要通过安装另一整套 SDK 解决 PATH 问题。
 
 ### 设备与运行时工具缺口
 
-当分析推进到第 6/7 步，确认遇 **PairIP/防重签、Android 7+/Flutter 证书限制、或无 `debuggable` 权限**，而当前可用设备不具备 root（例如只有 `user` 构建的 `google_apis_playstore` AVD 或未 root 真机）或本机 `preflight` 显示缺少 `frida`/AOT/Hermes 工具时：
+当分析推进到第 6/7 步，确认遇 **PairIP/防重签、Android 7+/Flutter 证书限制、或无 `debuggable` 权限**，而当前运行设备不具备 root（例如只有 `user` 构建的 `google_apis_playstore` AVD）或本机尚未安装 `frida`/AOT/Hermes 工具时：
 
-1. **不要将其直接定性为必须真实账号/OTP 的 `real_external_blocker`**：先完成所有不依赖 root 的静态反编译、CDN 静态 H5 快照获取、路由枚举及独立浏览器全拦截 Mock。
-2. **优先复用通用能力，保持原用户设备与 AVD 干净**：若已有可 `adb root` 的 `google_apis`/`userdebug` AVD 或已授权的 root 测试真机，直接复用（无需任何 `ramdisk`/Magisk 改造）；**不得**向用户日常真机或原 Play Store AVD 刷入 root/修改系统分区；只有在缺少任何 root 环境且需要模拟系统 CA / Frida 注入时，才使用独立的任务专用 `google_apis` AVD 或隔离克隆 AVD。
-3. **一次性说明方案与代价交用户决策**：若涉及下载新系统镜像、对独立 AVD 进行 root 适配、安装匹配设备 ABI（`ro.product.cpu.abilist`）的 `frida`/`frida-server`，或在本机工具链编译/安装 `blutter`（Dart SDK 不兼容时可改用 Frida 运行时观测通道键名而不强求编译）、Hermes 反汇编器，向用户列出具体组件、磁盘位置、大概下载体积与目的，并提供明确选择：**（A）授权准备独立 root + Frida 运行时测试环境以注入本地会话/系统 CA 继续走查**，或 **（B）由用户提供测试账号/OTP**。已有用户授权或环境已就绪时直接执行，并在收尾时断开端口转发与临时探针。
+1. **禁止只做浏览器 H5 Mock 就停下交付或索要授权**：不得将其定性为必须真实账号/OTP 的 `real_external_blocker`，也不得以“已完成浏览器 H5 全拦截 Mock”为由跳过 App 壳内走查或停下向用户发 `(A)/(B)` 选择题。只要本机已有匹配的 Android 系统镜像，必须自动完成下方的零镜像下载隔离 root + Frida 壳内走查闭环。
+2. **复用本机已有镜像，零新镜像下载、零原环境污染**：
+   - 若已有可 `adb root` 的 `google_apis`/`userdebug` AVD 或已授权的 root 测试真机，直接复用；
+   - 若本机只有 `google_apis_playstore`（`user` 构建）镜像与日常 AVD（如 `Pixel_10_Pro`），**严禁修改原有 AVD 或原系统镜像目录下的 `ramdisk.img`，也严禁去 `sdkmanager` 下载新的 `google_apis` 系统镜像**；必须直接复用本机已安装的这套 Play 商店镜像新建任务专用隔离 AVD，并对其 `ramdisk.img` 副本做 Magisk 修补后通过 `-ramdisk` 参数启动。
+3. **本机已有镜像（含 Play 商店镜像）的 `-ramdisk` 副本 Root 与 Frida 挂载标准流程（无需请求授权，直接执行）**：
+   - **步骤 1（新建隔离 AVD 并复制 `ramdisk.img`）**：用 `avdmanager create avd -n <Task_Magisk> -k "<本机已有system-image包名>" -d pixel_7` 创建独立 AVD；将原镜像目录下的 `ramdisk.img` 复制为 `<Task_Magisk>.avd/ramdisk-stock.img`。
+   - **步骤 2（修补裸 `lz4_legacy` 格式的模拟器 `ramdisk` 副本）**：从 `Magisk.apk` 解出对应架构（`arm64-v8a` 或 `x86_64`）的 `libmagiskboot.so`、`libmagiskinit.so`、`libmagisk.so`、`libinit-ld.so` 与 `assets/stub.apk`。注意模拟器 `ramdisk.img` 是无 Android boot header 的 `lz4_legacy` 压缩 `cpio`（不能直接跑 `boot_patch.sh` 的 `unpack`），按以下顺序修补副本：
+     1. `magiskboot decompress ramdisk-stock.img ramdisk.cpio`；
+     2. `magiskboot compress=xz magisk magisk.xz`、`compress=xz stub.apk stub.xz`、`compress=xz init-ld init-ld.xz`；
+     3. 生成包含 `KEEPVERITY=false`、`KEEPFORCEENCRYPT=false`、`RECOVERYMODE=false`、**`PREINITDEVICE=metadata`**（Android 11+ 模拟器必带，否则开机报 `Magisk environment incomplete`）及 `SHA1=<原cpio的sha1>` 的 `config` 文件；
+     4. 执行 `magiskboot cpio ramdisk.cpio "backup ramdisk.cpio.orig" "mkdir 0750 overlay.d" "mkdir 0750 overlay.d/sbin" "add 0644 overlay.d/sbin/magisk.xz magisk.xz" "add 0644 overlay.d/sbin/stub.xz stub.xz" "add 0644 overlay.d/sbin/init-ld.xz init-ld.xz" "patch" "mkdir 000 .backup" "add 000 .backup/.magisk config"`；
+     5. `magiskboot compress=lz4_legacy ramdisk.cpio <Task_Magisk>.avd/ramdisk-magisk.img`。
+   - **步骤 3（`-ramdisk` 启动并激活 Shell Root 与 `frida-server`）**：
+     1. 以 `emulator -avd <Task_Magisk> -ramdisk <Task_Magisk>.avd/ramdisk-magisk.img -no-snapshot-load -no-boot-anim` 启动隔离 AVD；
+     2. 安装 `Magisk.apk` 并启动一次 `com.topjohnwu.magisk/.ui.MainActivity` 完成环境初始化；若 `/debug_ramdisk/su -c id` 返回 `Permission denied`（日志 `su: request rejected (2000)`），在 Magisk App 底部切到 **Superuser** 页打开 `[SharedUID] Shell`（`com.android.shell`）开关（或点击弹窗 Grant），确认 `/debug_ramdisk/su -c id` 返回 `uid=0(root)`；
+     3. 将匹配 ABI（`ro.product.cpu.abilist`）与本机 `frida` 版本的 `frida-server` 推入 `/data/local/tmp/frida-server`，通过 `/debug_ramdisk/su -c 'chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D'` 启动，收尾时关闭隔离模拟器并清理转发端口。
+4. **何时才需要向用户询问**：仅当本机连任何可匹配的 Android 系统镜像都未安装（确需下载数 GB 镜像）、需要宿主机 `sudo`、或上述隔离 root + Frida 注入实测仍被服务端强校验阻断而只能依赖真实账号/OTP 时，才向用户说明具体阻塞与代价并请求决策。
 
 ## 匿名下载的实际边界
 
