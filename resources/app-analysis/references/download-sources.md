@@ -57,7 +57,7 @@ APKCube 历史观察到 `/api/apps/{package}/apks?token=...`、FETCHING 和下�
 
 | 网站 | 历史结果与使用条件 |
 |---|---|
-| https://apkcombo.com / https://apkcombo.app | Downloader、checkin、AJAX 都曾探测；遇到 403/Cloudflare/TLS，无新增成功样本。当前页面可正常使用时再跟下载入口 |
+| https://apkcombo.app | Downloader、checkin、AJAX 都曾探测；遇到 403/Cloudflare/TLS，无新增成功样本。当前页面可正常使用时再跟下载入口（原 `apkcombo.com` 已跳转停放页，不再探测） |
 | https://www.apkmirror.com | 曾找到 Kredivo 印尼包 `com.finaccel.android`；不能替代越南包 `vn.kredivo.android` |
 | https://www.pgyer.com/apk | VietCredit APKHUB 页因出口 CN 受限/403；不要把地区受限当页面不存在 |
 | https://apk.ldplayer.net | 部分条目有 APK，部分无 APK；核对真实下载结果及版本 |

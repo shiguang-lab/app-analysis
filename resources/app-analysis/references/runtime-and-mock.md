@@ -20,10 +20,10 @@
 
 | 所在层 | workspace 中验证过的方式 | 成功条件 |
 |---|---|---|
-| App 内 WebView | ADB 转发实际 WebView DevTools socket，Playwright/CDP 连接；在该 context 拦截数据请求，使用原 Bridge/存储 API 准备演示会话、配置、草稿 | 使用原文档/JS/CSS，目标位于前台、visible/attached；页面行为由原组件处理 |
+| App 内 WebView | ADB 转发实际 WebView DevTools socket，Playwright/CDP 连接；在该 context 拦截数据请求，使用原 Bridge/存储 API 准备演示会话、配置、草稿；遇 PairIP/防重签无法改 `debuggable` 副本时，改用任务模拟器网络代理拦截接口数据层 | 使用原文档/JS/CSS，目标位于前台、visible/attached；页面行为由原组件处理 |
 | Android 原生状态卡/表单 | 定位 ViewModel/Repository/状态数据入口，在原运行时提供结构一致的数据；历史 FT F9 使用 JDI 调用原 LiveData 的 setValue | 原 RecyclerView/布局实际显示状态，不能拿网页 Mock 或直接布局预览代替 |
 | RN/Hermes | 在实际 Hermes 运行时提供本地服务数据/条件，保留原组件和 Store API；等待原 UI 队列稳定 | 原组件产生状态/弹层；原始服务合同和边界条件一致 |
-| 独立 H5 原页面 | 加载原 HTML 与静态依赖，全拦截 API，按原协议提供本地响应，真实点击完成流程 | 可证明该 H5 的行为；只作为 browser 模式证据，不能声称是 App WebView 实拍 |
+| 独立 H5 原页面 | 当 App 内受真实账号、PairIP 或不可调试限制无法挂载 WebView，而**已取得 H5 源码快照**时，必须继续在本层加载原 HTML 与静态依赖，全拦截 API 并模拟当前 App 实际 Bridge 走完流程 | 可证明该 H5 的交互与状态流转；只作为 `browser` 模式证据单列，不能跳过第 7 步直接放弃 Mock，也不能声称是 App 内实拍 |
 | Flutter 原生页面 | 先定位实际 Dart/平台通道/服务数据层和可观测状态；只在当前工具确有能力时准备可复现数据 | 不能以重写 Flutter 页面、H5 替代或零散字符串推断冒充实测；不具备能力时记录限制 |
 | 相机/OCR/活体/评分等外部 SDK | 尽量观察原组件与实际错误；需要业务继续时可提供本地回调继续下游 | 回调成功只验证客户端下游，不证明 SDK 真正完成识别、活体或评分表单展示 |
 
@@ -40,7 +40,7 @@
 
 ## WebView 的具体经验
 
-- 先定位当前 PID、WebView 调试 socket 和 `/json/list` 目标；App 原版未开放调试时，按 package-analysis 准备任务分析副本。
+- 先定位当前 PID、WebView 调试 socket 和 `/json/list` 目标；App 原版未开放调试时，按 package-analysis 准备任务分析副本；若原包带 PairIP/防重签保护不能重签，保持原包并在任务模拟器配置本地代理拦截接口（若走 HTTPS 需按隔离环境信任对应证书且收尾清除），同时已拿到 H5 快照时用独立浏览器全拦截补齐 H5 交互走查。
 - 多个 WebView 可能同时存在，旧 page 对象可能指向后台。每个场景都核对前台包/Activity、目标 URL，以及 DevTools description 的 visible、attached；不能选择列表第一个目标就截图。
 - 使用 `window.Android`、`window.mocamocaJs` 等**当前 App 实际存在**的 Bridge，不把历史方法名写死为新 App 通用 API。
 - 保留原始静态依赖和哈希。浏览器原组件预览可能缺原生标题栏、安全区、字体、键盘和桥接行为；报告明确它是浏览器证据，优先在 App WebView 补实拍。
