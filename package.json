@@ -1,18 +1,18 @@
 {
-  "name": "global-app-skill",
-  "version": "0.1.14",
+  "name": "app-analysis",
+  "version": "0.1.15",
   "description": "Thin skill bootstrap and GitHub resource runner for overseas Android app research",
   "type": "module",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shiguang-lab/global-app-skill.git"
+    "url": "git+https://github.com/shiguang-lab/app-analysis.git"
   },
   "engines": {
     "node": ">=22.12.0"
   },
   "bin": {
-    "global-app-skill": "src/cli.mjs"
+    "app-analysis": "src/cli.mjs"
   },
   "files": [
     "src",

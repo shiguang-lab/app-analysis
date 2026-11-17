@@ -5,7 +5,7 @@ import { resolveContext } from './resources.mjs';
 import { runScript } from './run.mjs';
 import { SKILL_NAME, validateMode, VERSION } from './protocol.mjs';
 
-const usage = `global-app-skill ${VERSION}
+const usage = `app-analysis ${VERSION}
   skill install [--dir ABSOLUTE_SKILL_DIRECTORY]
   context resolve --mode download|research|ued [--skill-dir PATH] [--cache-dir PATH] [--feed HTTPS_MANIFEST_URL]
   run SCRIPT [--mode download|research|ued] [--skill-dir PATH] [--resource-root PATH] [--cache-dir PATH] [--feed URL] -- SCRIPT_ARGS
@@ -37,16 +37,16 @@ export async function main(argv) {
     if (!allowed.includes(key)) throw new Error(`--${key} is not supported by ${command} ${action}`);
   }
   const options = { mode: values.mode || 'research', resourceRoot: values['resource-root'], cacheDir: values['cache-dir'],
-    feed: values.feed, progress: message => process.stderr.write(`[global-app-skill] ${message}\n`) };
+    feed: values.feed, progress: message => process.stderr.write(`[app-analysis] ${message}\n`) };
   if (command !== 'skill') validateMode(command === 'context' ? values.mode : options.mode);
   if (command === 'run' && options.resourceRoot && (values.feed || values['cache-dir'])) {
     throw new Error('--resource-root cannot be combined with --feed or --cache-dir');
   }
   const skillUpdate = command === 'skill' ? undefined : await syncInstalledSkills({ directory: values['skill-dir'] });
-  if (skillUpdate?.error) process.stderr.write(`[global-app-skill] Skill discovery failed: ${skillUpdate.error}\n`);
+  if (skillUpdate?.error) process.stderr.write(`[app-analysis] Skill discovery failed: ${skillUpdate.error}\n`);
   for (const entry of skillUpdate?.installations || []) {
-    if (entry.status === 'updated') process.stderr.write(`[global-app-skill] Updated local entry: ${entry.skillPath}; reload the skill to use new discovery instructions\n`);
-    if (entry.status === 'failed') process.stderr.write(`[global-app-skill] Skill entry update failed: ${entry.skillPath}: ${entry.error}\n`);
+    if (entry.status === 'updated') process.stderr.write(`[app-analysis] Updated local entry: ${entry.skillPath}; reload the skill to use new discovery instructions\n`);
+    if (entry.status === 'failed') process.stderr.write(`[app-analysis] Skill entry update failed: ${entry.skillPath}: ${entry.error}\n`);
   }
   if (command === 'run') {
     process.exitCode = await runScript(action, separator < 0 ? [] : argv.slice(separator + 1), options);

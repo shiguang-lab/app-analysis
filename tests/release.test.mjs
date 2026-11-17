@@ -16,18 +16,18 @@ test('release tags determine npm publication and must match the CLI version', ()
 });
 
 test('builds the complete tag release and detects changed or tampered assets', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'global-app-skill-release-test-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'app-analysis-release-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = path.join(root, 'release');
   const prepared = await prepareRelease(`v${VERSION}`, directory);
   const manifest = await verifyRelease(directory);
   assert.equal(manifest.releaseTag, `v${VERSION}`);
   assert.equal(prepared.resourceHash, manifest.resourceHash);
-  assert.deepEqual((await readdir(directory)).sort(), [manifest.bundle, 'SHA256SUMS', 'global-app-skill.tgz', 'latest.json'].sort());
+  assert.deepEqual((await readdir(directory)).sort(), [manifest.bundle, 'SHA256SUMS', 'app-analysis.tgz', 'latest.json'].sort());
   const remote = path.join(root, 'remote');
   await cp(directory, remote, { recursive: true });
   await verifyRelease(remote, directory);
-  await writeFile(path.join(remote, 'global-app-skill.tgz'), 'changed archive');
+  await writeFile(path.join(remote, 'app-analysis.tgz'), 'changed archive');
   await assert.rejects(verifyRelease(remote, directory), /checksum mismatch/);
   const original = await readFile(path.join(directory, 'SHA256SUMS'), 'utf8');
   await writeFile(path.join(directory, 'SHA256SUMS'), original.replace(/^[a-f0-9]/, char => char === 'a' ? 'b' : 'a'));

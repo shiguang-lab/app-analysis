@@ -17,17 +17,17 @@
 执行安装命令（默认安装到 `~/.agents/skills/app-analysis/SKILL.md`）：
 
 ```sh
-npx -y --prefer-online global-app-skill@latest skill install
+npx -y --prefer-online app-analysis@latest skill install
 ```
 
 如需安装到指定 AI 客户端目录，使用 `--dir` 传入目标绝对路径：
 
 ```sh
 # Codex
-npx -y --prefer-online global-app-skill@latest skill install --dir "$HOME/.codex/skills/app-analysis"
+npx -y --prefer-online app-analysis@latest skill install --dir "$HOME/.codex/skills/app-analysis"
 
 # Claude Code
-npx -y --prefer-online global-app-skill@latest skill install --dir "$HOME/.claude/skills/app-analysis"
+npx -y --prefer-online app-analysis@latest skill install --dir "$HOME/.claude/skills/app-analysis"
 
 # Cursor / Gemini / Kiro 等同理，替换为对应客户端的 skills/app-analysis
 ```

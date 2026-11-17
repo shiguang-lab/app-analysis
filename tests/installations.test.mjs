@@ -7,10 +7,10 @@ import { discoverSkillDirectories, SKILL_ROOTS } from '../src/installations.mjs'
 import { installSkill, syncInstalledSkills } from '../src/skill.mjs';
 import { VERSION } from '../src/protocol.mjs';
 
-const oldEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
+const oldEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online app-analysis@latest context resolve --mode MODE\n';
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'global-app-skill-discovery-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'app-analysis-discovery-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const options = { home: path.join(root, 'home'), cwd: path.join(root, 'work'), env: {}, stateDirectory: path.join(root, 'state') };
   await mkdir(options.home);
@@ -88,7 +88,7 @@ test('a moved standard-directory skill updates without the old machine installat
   const moved = path.join(secondHome, '.gemini/skills/app-analysis');
   await mkdir(path.dirname(moved), { recursive: true });
   await rename(original, moved);
-  await writeFile(path.join(moved, 'SKILL.md'), portable.replace(`global-app-skill-version: ${VERSION}`, 'global-app-skill-version: 0.0.1') + '\nold entry\n');
+  await writeFile(path.join(moved, 'SKILL.md'), portable.replace(`app-analysis-version: ${VERSION}`, 'app-analysis-version: 0.0.1') + '\nold entry\n');
   const secondOptions = { ...options, home: secondHome, stateDirectory: path.join(root, 'new-state') };
   const result = await syncInstalledSkills(secondOptions);
   assert.equal(result.installations.length, 1);

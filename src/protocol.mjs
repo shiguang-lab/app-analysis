@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 export const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version;
 export const SKILL_NAME = 'app-analysis';
-export const RELEASE_BASE = 'https://github.com/shiguang-lab/global-app-skill/releases';
+export const RELEASE_BASE = 'https://github.com/shiguang-lab/app-analysis/releases';
 export const FEED = `${RELEASE_BASE}/latest/download/latest.json`;
 export const RELEASE_TAG = /^(?:v|resources-v)(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 export const MAX_BYTES = 16 * 1024 * 1024;
@@ -61,14 +61,14 @@ export function validateManifest(manifest, { requireRules = true } = {}) {
   const minimum = manifest.minCliVersion.split('.').map(Number);
   for (let i = 0; i < 3; i++) {
     if (installed[i] > minimum[i]) break;
-    if (installed[i] < minimum[i]) throw new Error(`Resources require CLI >=${manifest.minCliVersion}; rerun with global-app-skill@latest`);
+    if (installed[i] < minimum[i]) throw new Error(`Resources require CLI >=${manifest.minCliVersion}; rerun with app-analysis@latest`);
   }
   return manifest;
 }
 
 export function bundleUrl(manifest, feed) {
   const url = new URL(feed);
-  if (url.origin === 'https://github.com' && url.pathname.startsWith('/shiguang-lab/global-app-skill/releases/')) {
+  if (url.origin === 'https://github.com' && url.pathname.startsWith('/shiguang-lab/app-analysis/releases/')) {
     // Pin the bundle to the manifest's release, even if "latest" advances
     // between fetching the manifest and fetching its archive.
     return new URL(`${RELEASE_BASE}/download/${manifest.releaseTag}/${manifest.bundle}`);

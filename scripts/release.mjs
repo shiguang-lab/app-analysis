@@ -19,7 +19,7 @@ export function releasePlan(tag, version = VERSION) {
 
 export async function verifyRelease(directory, compareDirectory) {
   const manifest = validateManifest(JSON.parse(await readFile(path.join(directory, 'latest.json'), 'utf8')));
-  const names = ['latest.json', manifest.bundle, 'global-app-skill.tgz'];
+  const names = ['latest.json', manifest.bundle, 'app-analysis.tgz'];
   const checksums = await readFile(path.join(directory, 'SHA256SUMS'), 'utf8');
   const expected = [];
   for (const name of names) expected.push(`${sha256(await readFile(path.join(directory, name)))}  ${name}`);
@@ -35,14 +35,14 @@ export async function prepareRelease(tag, directory = path.join(root, 'dist/rele
   await rm(directory, { recursive: true, force: true });
   await mkdir(directory, { recursive: true });
   const manifest = await buildResources(path.join(root, 'resources', SKILL_NAME), directory, { releaseTag: tag });
-  const temporary = await mkdtemp(path.join(tmpdir(), 'global-app-skill-pack-'));
+  const temporary = await mkdtemp(path.join(tmpdir(), 'app-analysis-pack-'));
   try {
     const packed = JSON.parse((await exec('npm', ['pack', '--json', '--pack-destination', temporary], { cwd: root })).stdout)[0];
     if (packed.version !== plan.version) throw new Error('Packed CLI does not match release version');
-    await copyFile(path.join(temporary, packed.filename), path.join(directory, 'global-app-skill.tgz'));
+    await copyFile(path.join(temporary, packed.filename), path.join(directory, 'app-analysis.tgz'));
   } finally { await rm(temporary, { recursive: true, force: true }); }
   const checksums = [];
-  for (const name of ['latest.json', manifest.bundle, 'global-app-skill.tgz']) {
+  for (const name of ['latest.json', manifest.bundle, 'app-analysis.tgz']) {
     checksums.push(`${sha256(await readFile(path.join(directory, name)))}  ${name}`);
   }
   await writeFile(path.join(directory, 'SHA256SUMS'), checksums.join('\n') + '\n');

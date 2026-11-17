@@ -7,7 +7,7 @@ import { sha256, SKILL_NAME } from './protocol.mjs';
 export const SKILL_ROOTS = ['.agents/skills', '.codex/skills', '.claude/skills', '.cursor/skills', '.gemini/skills', '.kiro/skills'];
 
 function stateRoot({ home = homedir(), env = process.env, stateDirectory } = {}) {
-  return path.resolve(stateDirectory || path.join(env.XDG_STATE_HOME || path.join(home, '.local/state'), 'global-app-skill'));
+  return path.resolve(stateDirectory || path.join(env.XDG_STATE_HOME || path.join(home, '.local/state'), 'app-analysis'));
 }
 
 async function exists(filename) {

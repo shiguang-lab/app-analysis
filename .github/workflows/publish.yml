@@ -99,4 +99,4 @@ jobs:
       - name: Publish verified CLI
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish dist/release/global-app-skill.tgz --access public --provenance
+        run: npm publish dist/release/app-analysis.tgz --access public --provenance

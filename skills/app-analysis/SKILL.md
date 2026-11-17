@@ -13,7 +13,7 @@ description: 调研海外 Android App 的业务流程、功能入口、字段权
 2. 解析资源：
 
    ```sh
-   npx -y --prefer-online global-app-skill@latest context resolve --mode MODE
+   npx -y --prefer-online app-analysis@latest context resolve --mode MODE
    ```
 
 3. 在开始任何分析前，按顺序读完返回的全部 `mustRead`：`cli → guide → orchestration → 模式文档 → rules`。`resourceRoot` 是只读快照，所有相对路径都以它为准；同一任务沿用它，新任务重新 resolve。资源更新或校验失败时停止依赖工作，不静默使用旧资源。

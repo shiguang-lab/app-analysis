@@ -55,7 +55,7 @@ export async function resolveContext({ mode, feed = FEED, cacheDir, progress = (
   }
   progress('Checking GitHub resource manifest');
   const manifest = validateManifest(JSON.parse((await download(url, 1024 * 1024)).toString('utf8')));
-  const root = path.resolve(cacheDir || process.env.GLOBAL_APP_SKILL_CACHE || path.join(homedir(), '.cache/global-app-skill'));
+  const root = path.resolve(cacheDir || process.env.APP_ANALYSIS_CACHE || path.join(homedir(), '.cache/app-analysis'));
   const releases = path.join(root, 'releases');
   const resourceRoot = path.join(releases, manifest.resourceHash);
   let updated = false;

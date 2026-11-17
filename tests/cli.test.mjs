@@ -16,10 +16,10 @@ import { installSkill as install, syncInstalledSkills } from '../src/skill.mjs';
 const cli = fileURLToPath(new URL('../src/cli.mjs', import.meta.url));
 const exec = promisify(execFile);
 const installSkill = directory => install(directory, { stateDirectory: path.join(path.dirname(directory), '.installation-state') });
-const managedEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
+const managedEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online app-analysis@latest context resolve --mode MODE\n';
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'global-app-skill-test-'));
+  const directory = await mkdtemp(path.join(tmpdir(), 'app-analysis-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const source = path.join(directory, 'source');
   const output = path.join(directory, 'feed');
@@ -43,7 +43,7 @@ async function fixture(t) {
 }
 
 test('fresh installation contains only a thin SKILL.md and is repeatable', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'global-app-skill-install-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'app-analysis-install-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const target = path.join(root, 'app-analysis');
   const result = await installSkill(target);
@@ -122,9 +122,9 @@ test('Release manifests pin archives to their own tag instead of the moving late
   const f = await fixture(t);
   const oldManifest = { ...f.manifest, releaseTag: 'resources-v0.1.4' };
   assert.equal(bundleUrl(oldManifest, FEED).href,
-    `https://github.com/shiguang-lab/global-app-skill/releases/download/resources-v0.1.4/${oldManifest.bundle}`);
+    `https://github.com/shiguang-lab/app-analysis/releases/download/resources-v0.1.4/${oldManifest.bundle}`);
   assert.equal(bundleUrl({ ...oldManifest, releaseTag: 'v0.1.5' }, FEED).href,
-    `https://github.com/shiguang-lab/global-app-skill/releases/download/v0.1.5/${oldManifest.bundle}`);
+    `https://github.com/shiguang-lab/app-analysis/releases/download/v0.1.5/${oldManifest.bundle}`);
   assert.equal(bundleUrl(oldManifest, f.options.feed).origin, new URL(f.options.feed).origin);
   assert.throws(() => validateManifest({ ...f.manifest, releaseTag: '../main' }), /Invalid resource manifest/);
 });
@@ -243,7 +243,7 @@ test('context resolve updates an old custom skill entry even when resources fail
   assert.equal(result.skillUpdate.installations[0].status, 'updated');
   assert.match(stderr, /Updated local entry/);
   const updated = await readFile(skillPath, 'utf8');
-  assert.ok(updated.includes(`global-app-skill-version: ${VERSION}`));
+  assert.ok(updated.includes(`app-analysis-version: ${VERSION}`));
   assert.ok(!updated.includes(target));
   assert.ok(!updated.includes('--skill-dir'));
   assert.deepEqual(await readdir(target), ['SKILL.md']);
@@ -273,7 +273,7 @@ test('entry synchronization preserves unowned, symlinked and newer entries witho
   assert.equal(discovered.installations[0].status, 'updated');
   assert.equal(await readFile(path.join(other, 'SKILL.md'), 'utf8'), otherEntry);
   const content = await readFile(path.join(standard, 'SKILL.md'), 'utf8');
-  await writeFile(path.join(standard, 'SKILL.md'), content.replace(`global-app-skill-version: ${VERSION}`, 'global-app-skill-version: 999.0.0'));
+  await writeFile(path.join(standard, 'SKILL.md'), content.replace(`app-analysis-version: ${VERSION}`, 'app-analysis-version: 999.0.0'));
   assert.equal((await syncInstalledSkills({ directory: standard })).installations[0].reason, 'newer-installed');
   const linked = path.join(f.directory, 'linked-skill');
   await symlink(standard, linked);
@@ -300,5 +300,5 @@ test('reports entry update failures independently and preserves pinned script st
     assert.match(error.stderr, /fixture-progress/);
     return true;
   });
-  assert.ok((await readFile(path.join(installed, 'SKILL.md'), 'utf8')).includes(`global-app-skill-version: ${VERSION}`));
+  assert.ok((await readFile(path.join(installed, 'SKILL.md'), 'utf8')).includes(`app-analysis-version: ${VERSION}`));
 });

@@ -21,7 +21,7 @@ async function writeSkill(target, existingOnly) {
   }
   if (existingOnly && !(await stat(skillPath))) return { skillPath, status: 'skipped', reason: 'not-installed' };
   if (!existingOnly) await mkdir(target, { recursive: true });
-  const lock = path.join(target, '.global-app-skill-lock');
+  const lock = path.join(target, '.app-analysis-lock');
   const deadline = Date.now() + 5000;
   for (;;) {
     try { await mkdir(lock); break; }
@@ -36,10 +36,10 @@ async function writeSkill(target, existingOnly) {
     try { previous = await readFile(skillPath, 'utf8'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     const installedName = previous?.match(/^name: ([a-z0-9-]+)$/m)?.[1];
-    if (existingOnly && (installedName !== SKILL_NAME || !previous?.includes('global-app-skill@latest context resolve'))) {
+    if (existingOnly && (installedName !== SKILL_NAME || !previous?.includes('app-analysis@latest context resolve'))) {
       return { skillPath, status: 'skipped', reason: 'not-managed' };
     }
-    const installedVersion = previous?.match(/^<!-- global-app-skill-version: (\d+\.\d+\.\d+) -->$/m)?.[1];
+    const installedVersion = previous?.match(/^<!-- app-analysis-version: (\d+\.\d+\.\d+) -->$/m)?.[1];
     if (installedVersion) {
       const installed = installedVersion.split('.').map(Number), bundled = VERSION.split('.').map(Number);
       for (let i = 0; i < 3; i++) {
@@ -48,7 +48,7 @@ async function writeSkill(target, existingOnly) {
       }
     }
     const bundled = await readFile(new URL(`../skills/${SKILL_NAME}/SKILL.md`, import.meta.url), 'utf8');
-    const content = bundled.trimEnd() + `\n\n<!-- global-app-skill-version: ${VERSION} -->\n`;
+    const content = bundled.trimEnd() + `\n\n<!-- app-analysis-version: ${VERSION} -->\n`;
     if (previous === content) return { skillPath, status: 'unchanged' };
     const temporary = path.join(target, `.SKILL-${randomUUID()}.tmp`);
     try {

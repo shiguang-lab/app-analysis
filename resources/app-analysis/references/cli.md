@@ -6,7 +6,7 @@
 
 ## 运行命令
 
-入口使用 `npx -y --prefer-online global-app-skill@latest`；下文 `CLI` 表示这一整段命令。`RESOURCE_ROOT` 替换为实际返回路径，包含空格时加引号。
+入口使用 `npx -y --prefer-online app-analysis@latest`；下文 `CLI` 表示这一整段命令。`RESOURCE_ROOT` 替换为实际返回路径，包含空格时加引号。
 
 ```sh
 CLI run preflight --mode research --resource-root RESOURCE_ROOT -- --report /absolute/task/environment.json
