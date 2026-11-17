@@ -7,7 +7,7 @@ import { discoverSkillDirectories, SKILL_ROOTS } from '../src/installations.mjs'
 import { installSkill, syncInstalledSkills } from '../src/skill.mjs';
 import { VERSION } from '../src/protocol.mjs';
 
-const oldEntry = '---\nname: global-app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
+const oldEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), 'global-app-skill-discovery-'));
@@ -27,10 +27,10 @@ async function oldSkill(directory) {
 test('default installation uses the project-aligned analysis skill identity and discovery directory', async t => {
   const { options } = await fixture(t);
   const installed = await installSkill(undefined, options);
-  const directory = path.join(options.home, '.agents/skills/global-app-analysis');
+  const directory = path.join(options.home, '.agents/skills/app-analysis');
   assert.equal(installed.skillPath, path.join(directory, 'SKILL.md'));
   const content = await readFile(installed.skillPath, 'utf8');
-  assert.match(content, /^name: global-app-analysis$/m);
+  assert.match(content, /^name: app-analysis$/m);
   assert.match(content, /^# 海外 App 分析$/m);
   assert.deepEqual(await discoverSkillDirectories(options), [directory]);
   assert.equal((await syncInstalledSkills(options)).installations[0].status, 'unchanged');
@@ -63,13 +63,13 @@ test('discovers existing client user/project skills up to the nearest repository
   await mkdir(nested, { recursive: true });
   await writeFile(path.join(repo, '.git'), 'gitdir: /fixture/worktree');
   const expected = [];
-  for (const directory of SKILL_ROOTS) expected.push(await oldSkill(path.join(options.home, directory, 'global-app-analysis')));
-  expected.push(await oldSkill(path.join(repo, '.claude/skills/global-app-analysis')));
-  expected.push(await oldSkill(path.join(repo, 'packages/ui/.cursor/skills/global-app-analysis')));
+  for (const directory of SKILL_ROOTS) expected.push(await oldSkill(path.join(options.home, directory, 'app-analysis')));
+  expected.push(await oldSkill(path.join(repo, '.claude/skills/app-analysis')));
+  expected.push(await oldSkill(path.join(repo, 'packages/ui/.cursor/skills/app-analysis')));
   const codexHome = path.join(root, 'codex-config');
-  expected.push(await oldSkill(path.join(codexHome, 'skills/global-app-analysis')));
-  const outside = await oldSkill(path.join(root, '.agents/skills/global-app-analysis'));
-  const unrelated = await oldSkill(path.join(repo, 'other-project/.gemini/skills/global-app-analysis'));
+  expected.push(await oldSkill(path.join(codexHome, 'skills/app-analysis')));
+  const outside = await oldSkill(path.join(root, '.agents/skills/app-analysis'));
+  const unrelated = await oldSkill(path.join(repo, 'other-project/.gemini/skills/app-analysis'));
   const scoped = { ...options, cwd: nested, env: { CODEX_HOME: codexHome } };
   assert.deepEqual((await discoverSkillDirectories(scoped)).sort(), expected.sort());
   const result = await syncInstalledSkills(scoped);
@@ -85,7 +85,7 @@ test('a moved standard-directory skill updates without the old machine installat
   await installSkill(original, options);
   const portable = await readFile(path.join(original, 'SKILL.md'), 'utf8');
   const secondHome = path.join(root, 'machine-b');
-  const moved = path.join(secondHome, '.gemini/skills/global-app-analysis');
+  const moved = path.join(secondHome, '.gemini/skills/app-analysis');
   await mkdir(path.dirname(moved), { recursive: true });
   await rename(original, moved);
   await writeFile(path.join(moved, 'SKILL.md'), portable.replace(`global-app-skill-version: ${VERSION}`, 'global-app-skill-version: 0.0.1') + '\nold entry\n');
@@ -100,8 +100,8 @@ test('a moved standard-directory skill updates without the old machine installat
 
 test('discovery outside a repository stays local, skips missing registrations, and reports corrupt state', async t => {
   const { root, options } = await fixture(t);
-  const local = await oldSkill(path.join(options.cwd, '.kiro/skills/global-app-analysis'));
-  await oldSkill(path.join(root, '.cursor/skills/global-app-analysis'));
+  const local = await oldSkill(path.join(options.cwd, '.kiro/skills/app-analysis'));
+  await oldSkill(path.join(root, '.cursor/skills/app-analysis'));
   const custom = path.join(root, 'removed-skill');
   await installSkill(custom, options);
   await rm(custom, { recursive: true });

@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const references = path.join(root, 'resources/global-app-analysis/references');
-const skill = await readFile(path.join(root, 'skills/global-app-analysis/SKILL.md'), 'utf8');
+const references = path.join(root, 'resources/app-analysis/references');
+const skill = await readFile(path.join(root, 'skills/app-analysis/SKILL.md'), 'utf8');
 const rules = await readFile(path.join(references, 'rules.md'), 'utf8');
 const completion = await readFile(path.join(references, 'completion.md'), 'utf8');
 
@@ -33,7 +33,7 @@ test('local Markdown links resolve and anchors exist', async () => {
   const files = [
     path.join(root, 'README.md'),
     ...await markdownFiles(path.join(root, 'skills')),
-    ...await markdownFiles(path.join(root, 'resources/global-app-analysis')),
+    ...await markdownFiles(path.join(root, 'resources/app-analysis')),
   ];
   for (const file of files) {
     const text = await readFile(file, 'utf8');
@@ -83,7 +83,7 @@ test('completion requires reading the current file, not a delivery receipt', () 
 test('the skill no longer depends on review/delivery checker artifacts', async () => {
   const files = [
     skill,
-    ...await markdownFiles(path.join(root, 'resources/global-app-analysis')),
+    ...await markdownFiles(path.join(root, 'resources/app-analysis')),
   ];
   for (const file of files) {
     const text = typeof file === 'string' ? file : await readFile(file, 'utf8');
@@ -108,8 +108,8 @@ test('release gate has one definition and one executable card', async () => {
 
   const canonical = '最后一轮修改之后';
   const files = [
-    path.join(root, 'skills/global-app-analysis/SKILL.md'),
-    ...await markdownFiles(path.join(root, 'resources/global-app-analysis/references')),
+    path.join(root, 'skills/app-analysis/SKILL.md'),
+    ...await markdownFiles(path.join(root, 'resources/app-analysis/references')),
   ];
   const carriers = [];
   for (const file of files) {
@@ -121,7 +121,7 @@ test('release gate has one definition and one executable card', async () => {
 
   const pointer = 'rules.md#放行判据';
   const pointers = [
-    path.join(root, 'skills/global-app-analysis/SKILL.md'),
+    path.join(root, 'skills/app-analysis/SKILL.md'),
     path.join(references, 'review-workflow.md'),
     path.join(references, 'report-review-workflow.md'),
   ];

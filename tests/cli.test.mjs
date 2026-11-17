@@ -16,14 +16,14 @@ import { installSkill as install, syncInstalledSkills } from '../src/skill.mjs';
 const cli = fileURLToPath(new URL('../src/cli.mjs', import.meta.url));
 const exec = promisify(execFile);
 const installSkill = directory => install(directory, { stateDirectory: path.join(path.dirname(directory), '.installation-state') });
-const managedEntry = '---\nname: global-app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
+const managedEntry = '---\nname: app-analysis\n---\nnpx -y --prefer-online global-app-skill@latest context resolve --mode MODE\n';
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'global-app-skill-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const source = path.join(directory, 'source');
   const output = path.join(directory, 'feed');
-  await cp(fileURLToPath(new URL('../resources/global-app-analysis/', import.meta.url)), source, {
+  await cp(fileURLToPath(new URL('../resources/app-analysis/', import.meta.url)), source, {
     recursive: true, filter: name => !name.includes('__pycache__'),
   });
   await writeFile(path.join(source, 'scripts/preflight.py'),
@@ -45,7 +45,7 @@ async function fixture(t) {
 test('fresh installation contains only a thin SKILL.md and is repeatable', async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'global-app-skill-install-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const target = path.join(root, 'global-app-analysis');
+  const target = path.join(root, 'app-analysis');
   const result = await installSkill(target);
   assert.deepEqual(await readdir(target), ['SKILL.md']);
   const entry = await readFile(result.skillPath, 'utf8');
@@ -203,7 +203,7 @@ test('parallel first-time resolutions return the same verified snapshot', async 
 
 test('all existing script CLIs can be invoked through verified resources', async t => {
   const f = await fixture(t);
-  await cp(fileURLToPath(new URL('../resources/global-app-analysis/scripts/preflight.py', import.meta.url)), path.join(f.source, 'scripts/preflight.py'));
+  await cp(fileURLToPath(new URL('../resources/app-analysis/scripts/preflight.py', import.meta.url)), path.join(f.source, 'scripts/preflight.py'));
   await buildResources(f.source, f.output);
   const { resourceRoot } = await resolveContext(f.options);
   for (const script of SCRIPTS) {
@@ -262,12 +262,12 @@ test('entry synchronization preserves unowned, symlinked and newer entries witho
   const missing = path.join(f.directory, 'missing');
   assert.equal((await syncInstalledSkills({ directory: missing })).installations[0].reason, 'not-installed');
   await assert.rejects(lstat(missing), { code: 'ENOENT' });
-  const standard = path.join(f.directory, '.agents/skills/global-app-analysis');
-  const other = path.join(f.directory, '.codex/skills/global-app-analysis');
+  const standard = path.join(f.directory, '.agents/skills/app-analysis');
+  const other = path.join(f.directory, '.codex/skills/app-analysis');
   await installSkill(standard);
   await writeFile(path.join(standard, 'SKILL.md'), managedEntry);
   await mkdir(other, { recursive: true });
-  const otherEntry = managedEntry.replace('name: global-app-analysis', 'name: another-analysis');
+  const otherEntry = managedEntry.replace('name: app-analysis', 'name: another-analysis');
   await writeFile(path.join(other, 'SKILL.md'), otherEntry);
   const discovered = await syncInstalledSkills({ directories: [standard, other] });
   assert.equal(discovered.installations[0].status, 'updated');

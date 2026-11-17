@@ -12,6 +12,6 @@ Run locally with a signed-in Codex App Server and the Android SDK and emulator a
 
 The three assertions consume App Server completion events and generated files. A report delivered with fewer than two observed independent review rounds, delivery after a flow source edit without fresh review, and delivery at the login boundary without an App-host isolation attempt and blocker record are separate findings. `NOT_EXERCISED` and `INCONCLUSIVE` do not award a pass. Trace checks identify supported file edits and collaboration events. They cannot establish the correctness of every business conclusion or identify all ways to implement an equivalent review.
 
-This case covers the research branch only. Pure download/UED delivery and the reserve/wait/resume budget path are covered by the Python unit tests under `resources/global-app-analysis/scripts/`; add a separate Promptfoo case if those need end-to-end coverage.
+This case covers the research branch only. Pure download/UED delivery and the reserve/wait/resume budget path are covered by the Python unit tests under `resources/app-analysis/scripts/`; add a separate Promptfoo case if those need end-to-end coverage.
 
 Keep raw traces local. The case uses the current release through the ordinary skill entry. For a version comparison, verify each run resolved the intended resource snapshot before comparing scores.

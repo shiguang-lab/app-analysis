@@ -1,5 +1,5 @@
 ---
-name: global-app-analysis
+name: app-analysis
 description: 调研海外 Android App 的业务流程、功能入口、字段权限与原始界面：当用户给出 App 名称、Google Play 链接、包名或 APK，要求分析借款/开户/下单等业务链路、竞品功能与字段权限，或要导出全部/指定页面截图、制作 UED 界面图册，或仅下载/导出 APK 时使用；需要拆包、恢复代码或运行原包定位页面时也使用。执行需要 Node.js、python3，以及可用的 Android 设备或完整 AVD（仅下载也要求设备门槛）；本 skill 只做 Android，不适用于 iOS。
 ---
 
