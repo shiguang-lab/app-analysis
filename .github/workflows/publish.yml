@@ -97,6 +97,4 @@ jobs:
       - run: npm install -g npm@latest
       - run: node scripts/release.mjs --verify dist/release
       - name: Publish verified CLI
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish dist/release/app-analysis.tgz --access public --provenance

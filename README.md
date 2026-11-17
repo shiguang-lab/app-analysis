@@ -101,6 +101,8 @@ git push origin resources-v0.1.4
 
 ### 一次性配置 npm 发布认证
 
-在 GitHub 仓库 Actions secrets 中配置拥有 `app-analysis` 发布权限的 `NPM_TOKEN`，工作流将其绑定到 npm 使用的 `NODE_AUTH_TOKEN`，不读取或复制本机 token。也可在 npm 包 Settings 中配置 GitHub Actions Trusted Publisher：组织 `shiguang-lab`、仓库 `app-analysis`、工作流文件 `publish.yml`、允许 `npm publish`，不设置 environment。工作流保留 `id-token: write`，供 OIDC 与 provenance 使用。GitHub Release 使用 Actions 自带的 `GITHUB_TOKEN` 与 `contents: write`。
+在 npm 包 Settings 中配置 GitHub Actions Trusted Publisher：组织 `shiguang-lab`、仓库 `app-analysis`、工作流文件 `publish.yml`、允许 `npm publish`，不设置 environment。工作流使用 OIDC，不需要 `NPM_TOKEN`；保留 `id-token: write`，供发布认证与 provenance 使用。GitHub Release 使用 Actions 自带的 `GITHUB_TOKEN` 与 `contents: write`。
+
+新包需先建立 npm 包记录。可在已登录的 npm CLI 中对已校验的 GitHub Release 安装包执行 `npm stage publish /absolute/app-analysis.tgz --access public`，再到 npm 的 Staged Packages 页面完成二次认证并批准发布。配置 Trusted Publisher 后，首次 Actions 发布需在两天内成功，以验证并绑定仓库身份。
 
 以后只推 tag，由 Actions 发布，不在本机执行 `npm publish`。当前项目未授予开源许可证，npm 元数据使用 `UNLICENSED`。
