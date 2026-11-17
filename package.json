@@ -1,6 +1,6 @@
 {
   "name": "app-analysis",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Thin skill bootstrap and GitHub resource runner for overseas Android app research",
   "type": "module",
   "license": "UNLICENSED",

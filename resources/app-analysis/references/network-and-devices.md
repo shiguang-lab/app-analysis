@@ -73,8 +73,17 @@
 | 真机/模拟器导出 | adb、已授权 device 状态 | 复用现有 platform-tools；unauthorized 交用户确认调试 |
 | Google Play 模拟器取包 | ABI/SDK 匹配的 AVD、带 Google Play 的镜像、商店登录和应用可用性 | Google APIs 镜像不等于带 Play Store。优先已有合适 AVD，禁止 wipe-data 或修改无关 AVD |
 | 匿名 Play getItems/delivery | 当前协议支持的设备 profile、已注册匿名 device ID；versionCode 可由 getItems 自动查询 | 先复用任务已有私密会话/工具生成记录；缺少时使用官方 Aurora 客户端或维护中的 GPlayAPI 工具完成注册，不伪造 device ID |
+| 运行时注入与 AOT/Hermes 恢复（按需） | 可 root 任务设备/AVD、`frida`/`frida-server`；Flutter AOT 需 `blutter`（依赖 `cmake`/`clang`/capstone）；RN 需 Hermes 反汇编器 | 先完成不依赖 root 的 JADX、静态资源与浏览器 H5 Mock；需要突破 `user` AVD 限制时按下方缺口规则向用户说明组件与代价后申请补齐，不直接判为无真实账号不可解 |
 
 工具安装先查现有路径（PATH、ANDROID_HOME、ANDROID_SDK_ROOT、常见 SDK 目录）。第 1 步设备/ADB 硬门槛失败时，本次调研直接中断，环境修复须另按用户请求执行。门槛已经通过而某渠道缺小型用户目录工具时，可按任务授权补齐；涉及 sudo、系统级配置、大型系统镜像、新服务条款或显著下载时，先把具体组件、位置、大小/代价说明给用户。不要通过安装另一整套 SDK 解决 PATH 问题。
+
+### 设备与运行时工具缺口
+
+当分析推进到第 6/7 步，确认遇 **PairIP/防重签、Android 7+/Flutter 证书限制、或无 `debuggable` 权限**，而当前可用设备不具备 root（例如只有 `user` 构建的 `google_apis_playstore` AVD 或未 root 真机）或本机 `preflight` 显示缺少 `frida`/AOT/Hermes 工具时：
+
+1. **不要将其直接定性为必须真实账号/OTP 的 `real_external_blocker`**：先完成所有不依赖 root 的静态反编译、CDN 静态 H5 快照获取、路由枚举及独立浏览器全拦截 Mock。
+2. **优先复用通用能力，保持原用户设备与 AVD 干净**：若已有可 `adb root` 的 `google_apis`/`userdebug` AVD 或已授权的 root 测试真机，直接复用（无需任何 `ramdisk`/Magisk 改造）；**不得**向用户日常真机或原 Play Store AVD 刷入 root/修改系统分区；只有在缺少任何 root 环境且需要模拟系统 CA / Frida 注入时，才使用独立的任务专用 `google_apis` AVD 或隔离克隆 AVD。
+3. **一次性说明方案与代价交用户决策**：若涉及下载新系统镜像、对独立 AVD 进行 root 适配、安装匹配设备 ABI（`ro.product.cpu.abilist`）的 `frida`/`frida-server`，或在本机工具链编译/安装 `blutter`（Dart SDK 不兼容时可改用 Frida 运行时观测通道键名而不强求编译）、Hermes 反汇编器，向用户列出具体组件、磁盘位置、大概下载体积与目的，并提供明确选择：**（A）授权准备独立 root + Frida 运行时测试环境以注入本地会话/系统 CA 继续走查**，或 **（B）由用户提供测试账号/OTP**。已有用户授权或环境已就绪时直接执行，并在收尾时断开端口转发与临时探针。
 
 ## 匿名下载的实际边界
 

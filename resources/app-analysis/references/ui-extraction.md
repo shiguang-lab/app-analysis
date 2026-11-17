@@ -30,8 +30,8 @@
 |---|---|---|
 | Android 原生（含 Compose） | Manifest 组件、导航图、Activity/Fragment 启动与切换、Compose 导航/页面状态、Deep Link、菜单/按钮、Dialog/BottomSheet/SDK 入口；核对全部相关 split 和按需模块 | 在原 Activity/视图/Compose 页面运行，用自然导航定位；受状态阻塞时按原 ViewModel/Repository/数据入口准备 fixture。UI hierarchy 仅辅助定位，最终图片取前台屏幕；布局 XML/Compose 预览不能算 App 页面实拍 |
 | React Native | 当前 JS/Hermes bundle 和实际加载的动态/热更新包；screen 注册、嵌套 navigator、条件注册、linking、原生导航模块和状态控制弹层。Hermes 按真实字节码/运行时能力恢复 | 在原 RN 宿主运行原组件，通过导航参数、Store/服务响应准备状态，等待 RN UI 队列与布局稳定后截屏。原生模块或内嵌 H5 继续转对应层；用网页重写组件、只找到 screen 名称都不算完成 |
-| Flutter | 对应版本的 assets、libapp.so/AOT、路由表、路由生成/Router 配置、实际导航调用、条件 Widget 与平台通道；不是所有页面都有命名路由 | 在原 Flutter 引擎/宿主运行，通过原路由及数据/平台通道准备状态，再取设备屏幕。Widget 可能不出现在 Android 层级中，空层级不代表空页面；AOT/调试不可恢复时记录缺口，不能从字符串推断出截图或重写页面 |
-| H5/WebView | APK 内资源与实际远端文档、Bridge/Deep Link/原生宿主、所有关联 JS/chunk、路由注册/生成、菜单与导航调用；必须执行下一节的动态入口分析 | 优先在 App 的正确前台 WebView 中加载原文档/资源并准备原协议数据；逐路由核对 URL、宿主、visible/attached 和页面特征。浏览器运行仅作明确标识的替代来源，不能计为 App 内实拍 |
+| Flutter | 对应版本的 assets、libapp.so/AOT（`Blutter`）、路由表、路由生成/Router 配置、实际导航调用、条件 Widget 与平台通道；不是所有页面都有命名路由 | 在原 Flutter 引擎/宿主运行，通过原路由及数据/平台通道准备状态（PairIP/不可重签时保持原包并在 root 环境用 Frida Hook `SharedPreferencesPlugin` 等平台插件注入隔离会话），再取设备屏幕。Widget 可能不出现在 Android 层级中，空层级不代表空页面；AOT/调试与运行时注入均不可行时再记录缺口，不能从字符串推断出截图或重写页面 |
+| H5/WebView | APK 内资源与实际远端文档、Bridge/Deep Link/原生宿主、所有关联 JS/chunk、路由注册/生成、菜单与导航调用；必须执行下一节的动态入口分析；API 返回未登录不代表静态 CDN 不可拉取，应单独验证静态资源 | 优先在 App 的正确前台 WebView 中加载原文档/资源并准备原协议数据（PairIP 不能改 `debuggable` 时可通过 Frida 运行时调用 `WebView.setWebContentsDebuggingEnabled(true)` 或系统 CA 代理）；逐路由核对 URL、宿主、visible/attached 和页面特征。浏览器运行仅作明确标识的替代来源，不能计为 App 内实拍 |
 
 同时登记页面内弹层、空态、错误/校验、权限拒绝、加载/结果等可见状态及实际存在的配置变体；以原实现为依据，不凭想象生成设计稿。系统权限框和第三方 SDK UI 分组标为外部界面，不与 App 自有页面混算；SDK 成功回调不能代替 SDK 自身界面。
 

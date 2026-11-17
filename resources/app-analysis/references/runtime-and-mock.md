@@ -20,11 +20,11 @@
 
 | 所在层 | workspace 中验证过的方式 | 成功条件 |
 |---|---|---|
-| App 内 WebView | ADB 转发实际 WebView DevTools socket，Playwright/CDP 连接；在该 context 拦截数据请求，使用原 Bridge/存储 API 准备演示会话、配置、草稿；遇 PairIP/防重签无法改 `debuggable` 副本时，改用任务模拟器网络代理拦截接口数据层 | 使用原文档/JS/CSS，目标位于前台、visible/attached；页面行为由原组件处理 |
-| Android 原生状态卡/表单 | 定位 ViewModel/Repository/状态数据入口，在原运行时提供结构一致的数据；历史 FT F9 使用 JDI 调用原 LiveData 的 setValue | 原 RecyclerView/布局实际显示状态，不能拿网页 Mock 或直接布局预览代替 |
-| RN/Hermes | 在实际 Hermes 运行时提供本地服务数据/条件，保留原组件和 Store API；等待原 UI 队列稳定 | 原组件产生状态/弹层；原始服务合同和边界条件一致 |
-| 独立 H5 原页面 | 当 App 内受真实账号、PairIP 或不可调试限制无法挂载 WebView，而**已取得 H5 源码快照**时，必须继续在本层加载原 HTML 与静态依赖，全拦截 API 并模拟当前 App 实际 Bridge 走完流程 | 可证明该 H5 的交互与状态流转；只作为 `browser` 模式证据单列，不能跳过第 7 步直接放弃 Mock，也不能声称是 App 内实拍 |
-| Flutter 原生页面 | 先定位实际 Dart/平台通道/服务数据层和可观测状态；只在当前工具确有能力时准备可复现数据 | 不能以重写 Flutter 页面、H5 替代或零散字符串推断冒充实测；不具备能力时记录限制 |
+| App 内 WebView | ADB 转发实际 WebView DevTools socket，Playwright/CDP 连接；在该 context 拦截数据请求，使用原 Bridge/存储 API 准备演示会话、配置、草稿；遇 PairIP/防重签无法改 `debuggable` 副本时，保持原包（安装加 `-i com.android.vending`），通过任务模拟器网络代理（含系统 CA/TLS 绕过）或**在 root 测试环境用 Frida 运行时调用 `WebView.setWebContentsDebuggingEnabled(true)`** 挂载调试 | 使用原文档/JS/CSS，目标位于前台、visible/attached；页面行为由原组件处理 |
+| Android 原生状态卡/表单 | 定位 ViewModel/Repository/状态数据入口，在原运行时提供结构一致的数据；可调试副本可用 JDI 调用原 `LiveData.setValue`；**遇 PairIP/不可重签时改为在 root 测试环境用 Frida 注入原包，Hook `SharedPreferences`/`MMKV`/Repository/`OkHttp` 拦截器或 `ViewModel` 数据入口** | 原 RecyclerView/布局实际显示状态，不能拿网页 Mock 或直接布局预览代替 |
+| RN/Hermes | 在实际 Hermes 运行时提供本地服务数据/条件，保留原组件和 Store API；遇 PairIP/不可重签时保持原包，通过 root 测试环境 + 系统 CA/Frida Hook `AsyncStorage`、`NativeModule` 或底层 `OkHttp`（`NetworkingModule`）注入输入并等待原 UI 队列稳定 | 原组件产生状态/弹层；原始服务合同和边界条件一致 |
+| 独立 H5 原页面 | 当 App 内受真实账号、PairIP 或不可调试限制无法挂载 WebView，而**已取得 H5 源码快照**时，必须继续在本层加载原 HTML 与静态依赖，全拦截 API 并模拟当前 App 实际 Bridge 走完流程；**注意把“业务 API 鉴权失败（如 `110001`）”与“静态 CDN 资源可访问性”分开核查**，只要 HTML/JS/CSS 可从 CDN 或包内取得即枚举路由并走查 | 可证明该 H5 的交互与状态流转；只作为 `browser` 模式证据单列，不能跳过第 7 步直接放弃 Mock，也不能声称是 App 内实拍 |
+| Flutter 原生页面 | 先定位 `libapp.so` 与平台通道合同（可用 `Blutter`/反汇编，或版本不匹配时先用符号/字符串检查配合 Frida 只读观察平台插件读取的键名）；**若无 PairIP/防重签限制可直接按调试副本路径运行，遇 PairIP/不可重签时保持原包，在具备 root 的测试设备/AVD 用 Frida Hook 未混淆的 Java 平台通道/存储插件（如 `LegacySharedPreferencesPlugin.getAll`、`SharedPreferencesPlugin`、`flutter_secure_storage`、自定义 MethodChannel）注入隔离会话/状态**，在断网或隔离代理下由原 Flutter 代码完成渲染与跳转；需要拦截 Dart HTTPS 请求时须使用系统 CA 或 Frida TLS/BoringSSL Hook | 原 Flutter 页面实际完成初始化、状态渲染与自然跳转；不能以重写 Flutter 页面、H5 替代或零散字符串推断冒充实测；仅当确认无可用 root/注入环境且用户未授权补齐，或实测强反调试阻断后才记限制 |
 | 相机/OCR/活体/评分等外部 SDK | 尽量观察原组件与实际错误；需要业务继续时可提供本地回调继续下游 | 回调成功只验证客户端下游，不证明 SDK 真正完成识别、活体或评分表单展示 |
 
 ### Mock 的不变量
@@ -38,9 +38,21 @@
 7. 单个 scenario 隔离会话/缓存和响应状态；动态后端 fixture 随原点击/请求推进，保留完整请求序列和未处理项。先跑主线，再按闭环规则补必要的正反、失败、返回与续办分支；主线走通不能关闭整项调研。
 8. 等待可观察条件（目标 Activity/文本、请求完成、渲染稳定、UI 队列空闲），不要仅固定 sleep 后截图。保留初次失败与最终断言，不能删除失败记录装成一次成功。
 
+## 防重签、证书限制与运行时注入底座
+
+原生 Android、RN 与 Flutter 在现代样本上常同时叠加三类障碍：**PairIP/防重签（不能改 `debuggable=true`）**、**证书不信任用户 CA**、**未登录接口拦截**。这三者不构成“必须真实账号/OTP”的充分条件，通用应对底座如下：
+
+1. **区分“重签改包”与“运行时注入”**：无 PairIP/强签名校验时仍可按调试副本或代理流程推进；仅当确认存在 PairIP/防重签保护时才切入免重签路径——**运行时 Frida 注入不需要修改或重签原 APK**。遇 PairIP 校验安装来源时保持原包并用 `-i com.android.vending` 安装，在可 root 测试设备或 AVD 上按实际设备 ABI（`ro.product.cpu.abilist`）运行匹配版本的 `frida-server` 附加/spawn 注入。若当前环境缺少 root 或 `frida`/`blutter`，按[设备与运行时工具缺口](network-and-devices.md#设备与运行时工具缺口)先继续静态与浏览器层工作并向用户申请补齐测试环境，不要直接判为外部阻塞。
+2. **证书信任限制与离线存储绕过**：Android 7+ 默认所有应用（含原生 `OkHttp` 与 RN `NetworkingModule`）均不信任用户安装的代理 CA（除非配置了 `network_security_config`），Flutter Dart `HttpClient` 更进一步仅读取系统内置根证书路径。需要拦截 HTTPS 业务接口时，必须在可写/root 测试 AVD 写入系统 CA 或用 Frida Hook TLS/`TrustManager`/BoringSSL；若目标页只需登录会话驱动（如本地 `token`/`phone`/`custNo`），优先在**设备断网隔离下 Hook 客户端本地存储/平台通道读取返回值**，绕过登录 HTTPS 接口。
+3. **跨栈寻找“低混淆边界”**：业务代码无论混淆成 ProGuard、Hermes 字节码还是 Flutter AOT（`libapp.so`），持久化存储、系统桥接与网络发送通常仍经过标准类/插件边界：
+   - **Flutter**：优先查 `LegacySharedPreferencesPlugin.getAll`、`SharedPreferencesPlugin`、`flutter_secure_storage` 及自定义 MethodChannel；
+   - **原生 Android**：优先查 `SharedPreferences`、`MMKV`、`OkHttp` 拦截器或 `ViewModel`/`Repository` 入口（替代无 `debuggable` 时失效的 JDI）；
+   - **RN**：优先查 `AsyncStorageModule`、`SharedPreferences`、自定义 `NativeModule` 与 `OkHttp` 网络模块。
+
 ## WebView 的具体经验
 
-- 先定位当前 PID、WebView 调试 socket 和 `/json/list` 目标；App 原版未开放调试时，按 package-analysis 准备任务分析副本；若原包带 PairIP/防重签保护不能重签，保持原包并在任务模拟器配置本地代理拦截接口（若走 HTTPS 需按隔离环境信任对应证书且收尾清除），同时已拿到 H5 快照时用独立浏览器全拦截补齐 H5 交互走查。
+- 先定位当前 PID、WebView 调试 socket 和 `/json/list` 目标；App 原版未开放调试时，按 package-analysis 准备任务分析副本；若原包带 PairIP/防重签保护不能重签，保持原包（`-i com.android.vending`）并在 root 测试环境通过 Frida 主线程调用 `android.webkit.WebView.setWebContentsDebuggingEnabled(true)`，或在任务模拟器配置本地代理拦截接口（需系统 CA/TLS Hook 且收尾清除）；同时只要已拿到 H5 快照就用独立浏览器全拦截补齐 H5 交互走查。
+- 若使用 Playwright `chromium.connectOverCDP` 连接 Android WebView DevTools 遇到 `Browser.setDownloadBehavior` 等上下文管理不支持报错，不要误判 WebView 不可调试；改用原生 CDP WebSocket 拦截、Frida Hook `WebViewClient.shouldInterceptRequest` 或代理层数据拦截，并在浏览器全拦截模式补齐交互证据。
 - 多个 WebView 可能同时存在，旧 page 对象可能指向后台。每个场景都核对前台包/Activity、目标 URL，以及 DevTools description 的 visible、attached；不能选择列表第一个目标就截图。
 - 使用 `window.Android`、`window.mocamocaJs` 等**当前 App 实际存在**的 Bridge，不把历史方法名写死为新 App 通用 API。
 - 保留原始静态依赖和哈希。浏览器原组件预览可能缺原生标题栏、安全区、字体、键盘和桥接行为；报告明确它是浏览器证据，优先在 App WebView 补实拍。

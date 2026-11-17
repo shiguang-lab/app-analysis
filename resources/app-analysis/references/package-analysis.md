@@ -14,13 +14,13 @@
 |---|---|---|
 | 普通 DEX | 用现有 JADX 反编译；结合 Manifest、资源 XML 和调用点定位 Activity/Fragment、ViewModel、导航与 Bridge | 某类搜索不到不等于该业务不存在 |
 | 主 DEX 很小、只见壳初始化/加载器 | 记录壳线索，运行原 App 观察业务加载；在任务环境恢复加载后的业务 DEX，再反编译和核对 | 初次 JADX 输出只有壳不等于完整业务已分析 |
-| Hybrid/H5 | 从原生路由/Bridge/日志/实际 WebView 取得真实文档、JS/CSS、动态 chunk、字典和配置；保存 URL、时间、哈希 | APK 中没有 H5 或官网首页能打开，不等于 App 不使用远程 H5 |
-| Flutter | 查 flutter_assets、NativeAssets/字体/配置、libapp.so 与 libflutter.so；AOT 需要匹配 SDK/架构的分析工具（本机曾使用 Blutter） | JADX 主要展示宿主/插件，不能当成 Dart 业务源码；工具不支持时如实标出 |
-| React Native/Hermes | 找 JS bundle 和动态包，结合原生 Bridge 与 Hermes 库；按实际 bundle 格式选择工具，必要时在原运行时观察服务和状态模型 | 二进制 bundle 不是空业务；Native API 触发不等于外部 UI 已出现 |
+| Hybrid/H5 | 从原生路由/Bridge/日志/实际 WebView 取得真实文档、JS/CSS、动态 chunk、字典和配置；保存 URL、时间、哈希；**业务 API 返回未登录错误（如 `110001`）不代表静态 CDN 资源受阻，单独核查 HTML/JS/CSS 静态域名并提取路由表** | APK 中没有 H5 或官网首页能打开，不等于 App 不使用远程 H5；接口鉴权失败不等于无法取得静态 H5 快照 |
+| Flutter | 查 flutter_assets、NativeAssets/字体/配置、libapp.so 与 libflutter.so；AOT 使用匹配 Dart SDK/架构的 `Blutter`/反汇编定位字符串、会话键名与调用点，并对照 Java 宿主插件（如 `shared_preferences`、`flutter_inappwebview`） | JADX 主要展示宿主/插件，不能当成 Dart 业务源码；但宿主插件正是 Frida 运行时注入的有效边界 |
+| React Native/Hermes | 找 JS bundle 和动态包，结合原生 Bridge 与 Hermes 库；用 Hermes 反编译/反汇编工具恢复路由、Store、`AsyncStorage` 与网络合同，必要时在原运行时观察服务和状态模型 | 二进制 bundle 不是空业务；Native API 触发不等于外部 UI 已出现 |
 
 JADX 可使用 `jadx -d <新目录> <APK或恢复DEX>`，以本机实际工具 `--help` 为准。查看反编译警告和关键函数的完整控制流；出现错误时结合原字节码/调用点复核，不把伪代码当无条件可信源。
 
-运行时 DEX 提取与分析副本属于有证据的条件路径，不对所有 App 盲试一套“通用脱壳”。workspace 中曾用 Java JDI/JDWP 观察已加载类与 ClassLoader 的 DexFile，并恢复运行时 DEX。具体对象布局、mCookie/指针偏移依 Android/ART 版本变化，不能复制历史偏移作为新设备事实。先检查当前运行时和工具匹配；遇到崩溃保留日志，换有依据的方法，而不是反复猜偏移。
+运行时 DEX 提取与分析副本属于有证据的条件路径，不对所有 App 盲试一套“通用脱壳”。workspace 中曾用 Java JDI/JDWP 观察已加载类与 ClassLoader 的 DexFile，并恢复运行时 DEX；**遇 PairIP/防重签不能改 `debuggable=true` 时，应在 root 测试环境改用 Frida 运行时提取或 Hook，不重签原包**。具体对象布局、mCookie/指针偏移依 Android/ART 版本变化，不能复制历史偏移作为新设备事实。先检查当前运行时和工具匹配；遇到崩溃保留日志，换有依据的方法，而不是反复猜偏移。
 
 ## 调试副本与原始实现一致性
 
