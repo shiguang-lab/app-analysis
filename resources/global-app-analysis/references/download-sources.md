@@ -74,16 +74,6 @@ APKCube 历史观察到 `/api/apps/{package}/apks?token=...`、FETCHING 和下�
 | https://www.appbrain.com / https://apptopia.com | 当时用于版本/包名核对，相关页面没有 APK 产物 |
 | APK-DL / APKPremier | 旧记录分别出现疑似停放页、跳转后无目标包；缺真实入口时不投入重复尝试 |
 
-## 提炼依据
+## 设计要点
 
-本模块已移除原脚本的固定包名、输出目录、代理 7897、菲律宾地区与版本值，以及仅“文件够大/是 ZIP 就算成功”的判断。每次尝试独立目录，不覆盖已有样本；已写入来源哈希的文件才允许断点续传。无来源摘要时重试从头下载，避免短效链接刷新后拼接不同文件。
-
-原实现只作可选溯源，不是运行依赖：
-
-- `~/docs/research/tools/pureapk.py`：APKPure 客户端头、protobuf 直链提取、流式下载/短效链接经验。
-- `~/docs/research/tools/collect_apks.py`：Aptoide 包名查询与元数据结构。
-- `~/overseas/PHO/.scratch/sms-analysis-2026-10-29/download_apks.py`：AAB 主包/全部 split 下载和来源 MD5。
-- `~/Downloads/philippines-lending-apps/tools/anonymous-download.py`：Aurora 匿名 delivery 协议与服务器 SHA-256；派生代码保留 GPL-3.0-or-later 标记及上游链接。
-- `~/overseas/get_money/docs/modules/device-collection/apks/README.md`：14 款真机导出、1 款网络下载的归档事实。
-
-不会把匿名令牌、device ID、个人账号资料、订阅配置或真实设备数据打包进 skill。
+本模块不预设固定包名、输出目录、代理端口、地区或版本值，也不以“文件够大/是 ZIP”作为成功判据。每次尝试独立目录，不覆盖已有样本；仅对已提供并写入来源哈希的文件允许断点续传，无来源摘要时重试从头下载，避免短效链接刷新后拼接不同文件。Aurora 匿名 delivery 派生代码保留 GPL-3.0-or-later 标记及上游协议说明。不会把匿名令牌、device ID、个人账号资料、订阅配置或真实设备数据打包进 skill。

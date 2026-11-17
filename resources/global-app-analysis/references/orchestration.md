@@ -52,12 +52,13 @@ flowchart TD
         captureRecord["保留原帧及哈希；复核成败均更新最新结果并追加历史"]
 
         needsBusiness{"本次是否包含业务调研？"}
-        businessWalk["8 业务走查：入口、条件、字段权限、成功失败及返回续办"]
+        businessWalk["8 业务走查并生成报告初版：入口、条件、字段权限、成功失败及返回续办"]
+        uedDraft["8 生成图册初版：页面目录、原图及可浏览图册"]
         reviewStart["9.1 准备证据并清点缺口"]
         reviewRun{"9.2 分工审查：本轮结果？"}
         reviewFix["9.3 回相关步骤继续分析"]
         reviewRestart["9.4 从 9.1 重新审查"]
-        reviewGate["9.5 校验当前文件与交付类型"]
+        reviewGate["9.5 校验当前初版与交付类型"]
 
         recover --> copyCheck
         copyCheck -->|"未使用副本或 passed"| profileCheck
@@ -82,13 +83,13 @@ flowchart TD
         capture --> captureRecord --> needsBusiness
 
         needsBusiness -->|"包含业务"| businessWalk --> reviewStart
-        needsBusiness -->|"仅 UED"| reviewStart
+        needsBusiness -->|"仅 UED"| uedDraft --> reviewStart
         reviewStart --> reviewRun
         reviewRun -->|"发现缺口"| reviewFix
         reviewFix -->|"缺实现/入口：回第 5–6 步"| recover
         reviewFix -->|"缺交互/图片：回第 7–8 步"| prepare
-        reviewFix -->|"仅需修正草稿"| reviewRestart
-        reviewRun -->|"本轮无缺口"| reReview{"至少两轮且当前文件已读？"}
+        reviewFix -->|"仅需修正初版"| reviewRestart
+        reviewRun -->|"本轮无缺口"| reReview{"至少两轮且当前初版已读？"}
         reReview -->|"否：从 9.1 再审一轮"| reviewRestart
         reReview -->|"是：9.5 校验"| reviewGate
         reviewRestart --> reviewStart
@@ -97,7 +98,7 @@ flowchart TD
 
     profileChange -->|"同来源同方法的关联尝试，不领取新搜索轮次"| fetch
 
-    reviewGate -->|"校验通过"| deliveryMode{"10 生成正式或获准阶段性交付物"}
+    reviewGate -->|"校验通过"| deliveryMode{"10 对第 8 步初版按分支检查并定稿"}
     checkpoint["保留缺口和恢复点，确定可交付范围"]
     checkpoint --> reviewRestart
 
@@ -105,14 +106,20 @@ flowchart TD
     deliveryMode -->|"UED 目标"| uedOutput["页面目录、原图、长图、可浏览图册及图片包"]
 
     businessOutput --> businessCheck["10.1–10.4 报告审查：格式、结构、结论与正文、最终 UI"]
-    uedOutput --> uedCheck["UED 交付验收：索引与清单一致、原尺寸可读、来源准确"]
+    uedOutput --> uedCheck["UED 交付验收（album）：索引与清单一致、原尺寸可读、来源准确"]
 
-    businessCheck -->|"事实变化：回第 9 步"| reviewStart
-    businessCheck -->|"修改成品后从对应环节重审"| businessCheck
+    businessCheck -->|"事实/流程/图变化：回第 9 步"| reviewStart
+    businessCheck -->|"修改样式/措辞后从对应 10.x 重查"| businessCheck
     uedCheck -->|"页面或范围变化：回第 9 步"| reviewStart
+    uedCheck -->|"修改样式/布局后重验"| uedCheck
 
-    businessCheck -->|"成品检查通过"| finalGate["校验成品、检查记录与当前文件"]
-    uedCheck -->|"成品检查通过"| finalGate
+    businessCheck -->|"10.1–10.4 通过"| finalModified{"定稿期间是否改动过成品？"}
+    uedCheck -->|"图册验收通过"| finalModified
+    finalModified -->|"是：派 1 次独立复审读当前最终文件"| finalReview{"独立复审当前最终文件：是否通过？"}
+    finalReview -->|"通过"| finalGate["校验成品、放行判据与当前文件"]
+    finalReview -->|"样式或措辞问题：回对应 10.x/验收"| deliveryMode
+    finalReview -->|"事实、流程或范围问题：回第 9 步"| reviewStart
+    finalModified -->|"否（第 9 步已审定同一文件）"| finalGate
     finalGate -->|"校验通过后交付"| cleanup
     apkDelivery --> cleanup
     stopped --> cleanup
@@ -124,7 +131,7 @@ flowchart TD
     classDef limited fill:#FFECBD,stroke:#FFC943
 
     class businessMode,businessWalk,businessOutput,businessCheck business
-    class uedMode,uedOutput,uedCheck ued
+    class uedMode,uedDraft,uedOutput,uedCheck ued
     class unknownRoutes,stopped,checkpoint limited
 
     style packageFlow fill:#F5F5F5,stroke:#B3B3B3
@@ -133,9 +140,9 @@ flowchart TD
 
 ## 执行时如何读图
 
-- **分支与复用**：灰色区域是三个分支共用的取包与校验；蓝色区域是业务/UED 的页面提取主干，其中橙色节点是业务附加步骤，纯 UED 跳过。混合技术栈分别处理各层，再汇入同一页面清单，不是整款 App 只能选一种技术栈。
+- **分支与复用**：灰色区域是三个分支共用的取包与校验；蓝色区域是业务/UED 的页面提取主干，其中橙色节点是业务附加步骤，纯 UED 跳过。混合技术栈分别处理各层，再汇入同一页面清单，不是整款 App 只能选一种技术栈。多款 App 对比任务中，默认以 `app-research/<task-slug>/` 为任务根目录放 `environment.json`、合并报告、`review-notes.md` 与共享 `ui/`，各款 App 的 `attempts.json` 与样本目录按包名隔离在各自子目录中，第 9、10 步围绕同一交付物汇总审查。
 - **H5 范围**：按每个纳入项目判断后端/配置值是否真正能选择页面。动态项目覆盖当前快照全部路由；固定项目从本次入口求使用闭包；未知项目继续补证，范围未查清不能判完整。原生/RN/Flutter 的页面发现及状态范围也必须执行。
-- **验收与交付**：第 9 步按 [证据审查工作流](review-workflow.md) 清点、分工、补证、重审和放行，具体查证要求见 [审查清单](review-checklist.md)；是否放行只看[放行判据](rules.md#放行判据)，本图只表达顺序。第 5–8 步补证完成后从 9.1 重新进入。第 10 步按 [报告审查工作流](report-review-workflow.md) 或 UED 图册验收检查实际交付物。真实阻塞或用户要求先看结果时只呈现已核实内容，阻塞与恢复动作留在聊天和内部。
+- **验收与交付**：第 8 步生成报告或图册初版；第 9 步按 [证据审查工作流](review-workflow.md) 清点、分工、补证、重审和放行，具体查证要求见 [审查清单](review-checklist.md)；是否放行只看[放行判据](rules.md#放行判据)，本图只表达顺序。第 5–8 步补证完成后从 9.1 重新进入。第 10 步按 [报告审查工作流](report-review-workflow.md) 或 [UED 图册验收（album）](ued-workflow.md#交付验收与进度) 检查并定稿；若第 10 步修改了样式或措辞，定稿后须再派 1 次独立复审读取当前最终文件。真实阻塞或用户要求先看结果时只呈现已核实内容，阻塞与恢复动作留在聊天和内部。
 - **版本与设备**：第 3 步保存用户目标 versionCode，第四步自动承接；没有关联取包记录时显式传目标版本，显式值与记录冲突须失败。设备相关尝试预先记录实际取包 profile；换 profile 用父 id、新 profile 和证据理由建立关联尝试，相同 profile 不重复，三轮搜索预算不变。
 - **副本一致性**：条目比对发现 Manifest 改变时返回 `requires_manifest_review`，须逐项核对实际语义差异；未经复核不能把副本截图认作原实现证据。无法补齐证据时继续可用的原包页面并记录缺口，不无限修改副本。
 - **回路与停止**：图中的取包搜索、技术卡点、第 9 步补证和第 10 步成品返工均适用[回路预算](loop-budget.md)。到上限仍需继续时暂停受影响的回路，用户确认后开一批。回到第 5 步的箭头代表返回第 5–8 步中的相关节点。第 10 步的事实问题回 9.1，沿用证据返工计数。

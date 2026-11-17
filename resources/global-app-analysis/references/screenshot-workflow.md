@@ -12,7 +12,7 @@
 
 ## 2. 逐帧采集并确认到底
 
-下面命令在 `$RESOURCE_ROOT` 下运行（或把 `scripts/` 换成绝对路径）。先将 `RESEARCH_SERIAL`、`RESEARCH_CAPTURE_DIR` 设置为已选 serial 和本页面/状态的**新建绝对目录**；`RESEARCH_X`、`RESEARCH_Y_FROM`、`RESEARCH_Y_TO` 依据当前实际容器设置，全部落在容器内部。上滑的起点 Y 大于终点 Y。不复用历史坐标。
+下面命令优先按 [CLI 执行](cli.md) 展开为 `CLI run long_screenshot --mode MODE --resource-root RESOURCE_ROOT -- ...`（避免在同一任务中混用两种调用方式）；仅在工作目录已切到 `$RESOURCE_ROOT` 且整任务均采用直接执行时，才直接运行 `python3 scripts/long_screenshot.py ...`。先将 `RESEARCH_SERIAL`、`RESEARCH_CAPTURE_DIR` 设置为已选 serial 和本页面/状态的**新建绝对目录**；`RESEARCH_X`、`RESEARCH_Y_FROM`、`RESEARCH_Y_TO` 依据当前实际容器设置，全部落在容器内部。上滑的起点 Y 大于终点 Y。不复用历史坐标。
 
 先检查当前 Python 有 Pillow：`python3 -c 'from PIL import Image; print(Image.__version__)'`。缺失时按本任务工具授权在用户目录/任务虚拟环境补齐，记录实际使用的 Python；不把依赖缺失记为已完成采集或拼接。
 

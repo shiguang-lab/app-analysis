@@ -39,7 +39,7 @@
 
 节点发现按以下顺序：
 
-1. 已知客户端优先。历史“鹿语云”通过 Clash Verge Rev 客户端使用，bundle ID 曾为 `io.github.clash-verge-rev.clash-verge-rev`；先确认本机实际客户端，不把“鹿语云”当固定进程名。
+1. 已知客户端优先。按本机实际安装的客户端与进程确认（如 Clash Verge Rev 等 Clash/Mihomo 客户端，bundle ID 常见如 `io.github.clash-verge-rev.clash-verge-rev`）；先核对本机实际客户端，不假定固定服务商或进程名。
 2. 有连接器/已授权客户端工具则读取节点。否则通过客户端 UI 读取当前策略组、选中节点及目标国家候选。
 3. 已从客户端设置/现有配置确认本地 Clash/Mihomo controller 时，可执行：
 
@@ -89,7 +89,7 @@
 
 已有输入先执行完整匿名链路。缺注册设备时按当前上游协议/官方 Aurora 客户端补齐，不要求用户手写 token；确实无法补齐时记为 dependency_missing，而非下载失败。getItems 成功仅证明详情可取，必须继续 delivery 与文件落盘才算取包成功。匿名请求异常时分别记录端点、HTTP/业务结果和未完成步骤；基于新协议证据做有界纠错，不重复错误接口。
 
-历史本机成功输入在 `~/Downloads/philippines-lending-apps/tools/`，仅作为本机可选复用线索；skill 不依赖该目录，不打包其中的 ID/会话文件。新机器缺输入且当前工具不能注册时，这条路径记为“依赖未就绪”，继续其他渠道，不停在要求用户提供 token。
+新机器缺输入且当前工具不能注册时，这条路径记为“依赖未就绪”，继续其他渠道，不停在要求用户提供 token。已有的 profile 与设备 ID 文件只存于任务或本机私密目录，不打包进 skill 也不写入共享报告。
 
 ## 模拟器 Google Play 与真机导出
 

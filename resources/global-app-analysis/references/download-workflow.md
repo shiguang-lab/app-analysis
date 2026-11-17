@@ -45,7 +45,7 @@
 
 ## 1. 环境检查
 
-先执行 `python3 scripts/preflight.py --report <任务目录>/environment.json`，再进行任何商店、镜像、包名搜索。国家已知时可追加 `--country`；未知无需先打断用户询问，先完成不依赖国家的设备检测。脚本优先用 `CLI run` 执行（见 [CLI 执行](cli.md)）；这里的 `python3` 是参数简写，直接执行时必须先切到 `$RESOURCE_ROOT`。
+先执行 `python3 scripts/preflight.py --report <任务目录>/environment.json`（第 1 步尚未确定包名时，先写入工作区任务根目录如 `app-research/environment.json`；严禁为凑目录名提前查包名），再进行任何商店、镜像、包名搜索。国家已知时可追加 `--country`；未知无需先打断用户询问，先完成不依赖国家的设备检测。脚本优先用 `CLI run` 执行（见 [CLI 执行](cli.md)）；这里的 `python3` 是参数简写，直接执行时必须先切到 `$RESOURCE_ROOT`。
 
 通过需同时满足：返回码 0、报告 `status=passed`、`downstream_allowed=true`。退出码 4 表示硬门槛失败。真机/在线模拟器要求 ADB 授权且 shell 可响应；未启动 AVD 要求 emulator 程序、配置以及 system/ramdisk/kernel 镜像存在。配置完整不等于已验证启动，使用前仍需启动并核实运行状态。
 
@@ -53,7 +53,7 @@
 
 ## 2. 目标识别与信息补齐
 
-从链接、现有 APK、历史归档解析：App 名称、目标国家/地区、Android 包名、期望版本、输出位置。用户未指定输出位置时，使用当前工作区内 `app-research/<package>/<version-or-attempt>/`；跟随已有归档规范，目录用英文包名。不要写回 skill 目录。
+从链接、现有 APK、历史归档解析：App 名称、目标国家/地区、Android 包名、期望版本、输出位置。用户未指定输出位置时，单款 App 使用当前工作区内 `app-research/<package>/<version-or-attempt>/`；多款 App 对比任务使用 `app-research/<task-slug>/` 存放任务级 `environment.json` 与合并报告/共享 `ui/`，各 App 的 `attempts.json` 与原包目录仍按 `<package>/<version-or-attempt>/` 隔离；跟随已有归档规范，目录用英文包名。不要写回 skill 目录。
 
 用户只需提供足以定位的线索，例如名称+国家、商店链接或已有 APK。由 agent 查询和解析其余信息，不要求用户填写完整表单：
 
@@ -93,7 +93,7 @@
 | 9 | 其他相关已知镜像 | APKCombo、APKMirror、PGYER、LDPlayer 等按当前包的已知条目依次尝试；每个来源记录结果，重复项直接排除 |
 | 10 | Web Search 兜底，每批最多 3 轮 | 每轮“自主搜索新来源 → 全量去重 → 实际尝试新增候选”。成功提前结束，批次耗尽后由用户决定是否继续 |
 
-用户明确指定渠道/优先级时遵从其要求，其余按表中顺序。每条路径在取包阶段即时处理依赖和必要确认，未就绪则记录原因后尝试下一条；用户回复后可继续原等待项。取得目标样本就进入第 4 步校验，无需为了走完列表继续下载。旧样本只作保底，不能取消指定版本任务。
+用户明确指定渠道/优先级时遵从其要求，其余按表中顺序。每条路径在取包阶段即时处理依赖和必要确认，未就绪或达到该渠道技术重试上限时，记录失败/阻塞原因后继续下一条可用渠道（无需先停在单条渠道询问用户）；用户回复后可继续原等待项。取得目标样本就进入第 4 步校验，无需为了走完列表继续下载。旧样本只作保底，不能取消指定版本任务。
 
 ### 任务级尝试记录与去重
 
@@ -116,7 +116,7 @@ python3 scripts/attempts.py begin --ledger /absolute/target/attempts.json --chan
 python3 scripts/attempts.py finish --ledger /absolute/target/attempts.json --id 1 --status failed --reason 'no matching package'
 ```
 
-上例的目录和包名是占位，执行时替换。begin 输出的实际 id 用于 finish；本地/设备路径可只传 channel，无需假造 URL。来源 URL 使用公开页面/入口，不写入 Cookie、token 或签名下载链接。
+上例的目录和包名是占位，执行时替换。`begin` 输出的实际 `id` 用于 `finish`；本地/设备路径可只传 `channel`，无需假造 URL。来源 URL 使用公开页面/入口，不写入 Cookie、token 或签名下载链接。`finish --status` 允许值为 `failed`、`waiting_user`、`dependency_missing`、`downloaded`、`verified`、`verification_failed`、`old_version_only`、`unavailable`、`redirected`：第 3 步取得样本后先记为 `downloaded`，第 4 步校验通过再更新为 `verified`（或 `old_version_only`/`verification_failed`）。另外，`attempts.py` 一旦开始 `search-round` 即禁止不带 `--search-round` 新建普通尝试；因此等待用户或缺依赖的已知渠道须在进入 Web Search 前先 `begin` 登记为 `waiting_user` 或 `dependency_missing`，后续才可按原 `id` 恢复。
 
 设备相关的首次 `begin` 追加 `--profile /absolute/acquisition-profile.json`。该文件的结构示例为 `{"abi":"arm64-v8a","sdk_level":35,"density":480}`，数值须替换为实际取包条件。切换后的新文件同理；关联取包示例（id、路径与理由替换为实际证据）：
 
@@ -169,7 +169,7 @@ python3 scripts/attempts.py begin --ledger /absolute/target/attempts.json --chan
 | 需要付费 App、购买账号或订阅 | 展示确切项目和费用 | 用户决定购买或改走已有授权设备 | 不自行付费 |
 | 仅有旧版本/来源无法独立核验 | 下载并标明实际证据、继续找目标版本 | 若要用较低标准作为最终交付，用户决定是否接受 | 标注已接受的限制，不修改原需求 |
 
-同一会话已有授权不重复确认；授权须覆盖具体动作。例如“必要时使用鹿语云菲律宾节点”已授权该切换，“匿名下载”本身没有授权改变全局 VPN。将与当前阻塞有关的问题一次合并，避免登录、VPN、设备选择分别反复打断。
+同一会话已有授权不重复确认；授权须覆盖具体动作。例如“必要时使用当前客户端的菲律宾节点”已授权该切换，“匿名下载”本身没有授权改变全局 VPN。将与当前阻塞有关的问题一次合并，避免登录、VPN、设备选择分别反复打断。
 
 ## 重试与结束
 
