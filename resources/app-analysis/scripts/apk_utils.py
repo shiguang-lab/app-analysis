@@ -173,11 +173,19 @@ def find_tool(name, sdk=None):
         for p in paths:
             if p.is_file() and os.access(p, os.X_OK):
                 return str(p)
+    venv_bins = []
+    try:
+        venv_bins = sorted(Path.home().glob(".venv*/bin"), reverse=True)
+    except OSError:
+        pass
     for extra in (Path("/opt/homebrew/bin"), Path("/usr/local/bin"),
-                  Path.home() / ".local/bin", Path.home() / ".cargo/bin"):
-        candidate = extra / name
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return str(candidate)
+                  Path.home() / ".local/bin", Path.home() / ".cargo/bin", *venv_bins):
+        try:
+            candidate = extra / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+        except OSError:
+            continue
     if name == "java":
         for jbr in (Path("/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"),
                     Path.home() / "Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"):

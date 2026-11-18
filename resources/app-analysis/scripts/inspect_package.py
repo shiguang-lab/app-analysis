@@ -12,6 +12,15 @@ from apk_utils import sha256, unpack_apks, write_json
 from progress import emit
 
 
+SHELL_LIBRARY_NAMES = {
+    "libDexHelper.so", "libDexHelper-x86.so", "libdexjni.so", "libexec.so", "libexecmain.so",
+    "libshella.so", "libshellx.so", "libjiagu.so", "libjiagu_a64.so", "libsecneo.so",
+    "libsecexe.so", "libapktoolplus_jiagu.so", "libkwsgmain.so", "libnesec.so",
+    "libbaiduprotect.so", "libtup.so", "libpairipcore.so",
+}
+SHELL_LIBRARY_PREFIXES = ("libshella-", "libjiagu_")
+
+
 def entry_hash(z, name):
     digest = hashlib.sha256()
     with z.open(name) as f:
@@ -40,12 +49,18 @@ def inventory(apks):
             names = unique_entries(z)
             if "AndroidManifest.xml" not in names:
                 raise ValueError("Not an APK: " + apk.name)
+            manifest_bytes = z.read("AndroidManifest.xml")
+            if b"com.pairip.application.Application" in manifest_bytes or b"com.pairip.licensecheck" in manifest_bytes:
+                indicators.add("pairip-protection")
             for info in z.infolist():
                 name = info.filename
                 base = PurePosixPath(name).name
                 if name.endswith(".dex"):
                     with z.open(info) as f:
                         header = f.read(112)
+                    dex_bytes = z.read(info) if info.file_size <= 32 * 1024 * 1024 else b""
+                    if b"Lcom/pairip/" in dex_bytes:
+                        indicators.add("pairip-protection")
                     row["dex"].append({"path": name, "bytes": info.file_size,
                                        "standard_dex_magic": header.startswith(b"dex\n"), "sha256": entry_hash(z, name)})
                 if name.startswith("lib/") and name.endswith(".so"):
@@ -56,9 +71,11 @@ def inventory(apks):
                         indicators.add("hermes-runtime")
                     if base in ("libreactnative.so", "libreactnativejni.so"):
                         indicators.add("react-native-runtime")
-                    if base in ("libDexHelper.so", "libDexHelper-x86.so", "libdexjni.so", "libexec.so"):
+                    if base == "libpairipcore.so":
+                        indicators.add("pairip-protection")
+                    if base in SHELL_LIBRARY_NAMES or base.startswith(SHELL_LIBRARY_PREFIXES):
                         row["shell_filename_signals"].append(name)
-                if name.startswith("assets/") and (name.endswith((".html", ".js", ".css", ".bundle")) or "flutter_assets/" in name):
+                if name.startswith("assets/") and (name.endswith((".html", ".js", ".css", ".bundle", ".json")) or "flutter_assets/" in name):
                     row["frontend_assets"].append({"path": name, "bytes": info.file_size})
                     if name.endswith(".html"):
                         indicators.add("bundled-html")

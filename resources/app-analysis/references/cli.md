@@ -6,7 +6,7 @@
 
 ## 运行命令
 
-入口使用 `npx -y --prefer-online app-analysis@latest`；下文 `CLI` 表示这一整段命令。`RESOURCE_ROOT` 替换为实际返回路径，包含空格时加引号。
+入口使用 `npx -y --prefer-online app-analysis@latest`；下文 `CLI` 表示这一整段命令。`RESOURCE_ROOT` 替换为实际返回路径，包含空格时加引号。在 macOS 等非登录 shell 会话中，若默认 `PATH` 不含 `/opt/homebrew/bin`、`/usr/local/bin` 或 Android SDK `platform-tools`/`emulator`，先将这些已存在目录并入 `PATH` 再执行命令。
 
 ```sh
 CLI run preflight --mode research --resource-root RESOURCE_ROOT -- --report /absolute/task/environment.json

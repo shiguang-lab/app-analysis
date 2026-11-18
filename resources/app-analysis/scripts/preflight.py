@@ -19,6 +19,107 @@ from apk_utils import find_tool, public_url, sdk_roots, write_json
 from progress import emit
 
 
+COUNTRY_ALIASES = {
+    "PH": ["菲律宾", "philippines", "manila", "🇵🇭"],
+    "MX": ["墨西哥", "mexico", "🇲🇽"],
+    "ID": ["印尼", "印度尼西亚", "indonesia", "jakarta", "🇮🇩"],
+    "VN": ["越南", "vietnam", "hanoi", "ho chi minh", "🇻🇳"],
+    "TH": ["泰国", "thailand", "bangkok", "🇹🇭"],
+    "MY": ["马来西亚", "大马", "malaysia", "kuala lumpur", "🇲🇾"],
+    "SG": ["新加坡", "狮城", "singapore", "🇸🇬"],
+    "IN": ["印度", "india", "mumbai", "🇮🇳"],
+    "PK": ["巴基斯坦", "pakistan", "karachi", "🇵🇰"],
+    "BR": ["巴西", "brazil", "sao paulo", "🇧🇷"],
+    "CO": ["哥伦比亚", "colombia", "bogota", "🇨🇴"],
+    "PE": ["秘鲁", "peru", "lima", "🇵🇪"],
+    "CL": ["智利", "chile", "santiago", "🇨🇱"],
+    "AR": ["阿根廷", "argentina", "buenos aires", "🇦🇷"],
+    "NG": ["尼日利亚", "nigeria", "lagos", "🇳🇬"],
+    "KE": ["肯尼亚", "kenya", "nairobi", "🇰🇪"],
+    "EG": ["埃及", "egypt", "cairo", "🇪🇬"],
+    "US": ["美国", "硅谷", "洛杉矶", "西雅图", "united states", "usa", "🇺🇸"],
+}
+
+REGION_FALLBACK_COUNTRIES = {
+    "MX": ("US", "CL", "BR", "CO", "PE", "AR"),
+    "CO": ("US", "MX", "CL", "BR", "PE", "AR"),
+    "PE": ("US", "CL", "BR", "CO", "MX", "AR"),
+    "CL": ("BR", "AR", "PE", "CO", "US", "MX"),
+    "BR": ("CL", "AR", "US", "CO", "PE", "MX"),
+    "AR": ("BR", "CL", "US", "PE", "CO", "MX"),
+    "PH": ("SG", "MY", "ID", "VN", "TH"),
+    "ID": ("SG", "MY", "PH", "TH", "VN"),
+    "VN": ("SG", "TH", "MY", "PH", "ID"),
+    "TH": ("SG", "MY", "VN", "ID", "PH"),
+    "MY": ("SG", "ID", "TH", "PH", "VN"),
+    "PK": ("SG", "IN"),
+    "IN": ("SG",),
+    "NG": ("KE", "EG"),
+    "KE": ("NG", "EG"),
+}
+
+
+def country_terms(country):
+    code = (country or "").upper()
+    exact = [s.lower() for s in COUNTRY_ALIASES.get(code, [])]
+    fallback = [s.lower() for c in REGION_FALLBACK_COUNTRIES.get(code, ()) for s in COUNTRY_ALIASES.get(c, [])]
+    return exact, fallback
+
+
+def local_clash_inventory(country=None, base_dir=None):
+    """Read-only fallback for local Clash/Mihomo profiles when HTTP controller is disabled; never exposes secrets or server hosts."""
+    if base_dir:
+        roots = [Path(base_dir)]
+    else:
+        roots = []
+        parents = [
+            Path.home() / "Library/Application Support",
+            Path(os.environ["XDG_CONFIG_HOME"]) if os.environ.get("XDG_CONFIG_HOME") else Path.home() / ".config",
+            Path(os.environ["XDG_DATA_HOME"]) if os.environ.get("XDG_DATA_HOME") else Path.home() / ".local/share",
+        ]
+        for parent in parents:
+            try:
+                if parent.is_dir():
+                    roots += sorted(p for p in parent.iterdir()
+                                    if p.is_dir() and re.search(r"clash|verge|mihomo", p.name, re.I))
+            except OSError:
+                continue
+    terms, fallback_terms = country_terms(country)
+    for root in roots:
+        profiles_file = root / "profiles.yaml"
+        if not profiles_file.is_file():
+            continue
+        try:
+            text = profiles_file.read_text(errors="ignore")
+            current_match = re.search(r"^current:\s*([A-Za-z0-9_-]+)", text, re.M)
+            current_uid = current_match.group(1) if current_match else None
+            groups = [{"group": g.strip().strip("'\""), "current": now.strip().strip("'\"")}
+                      for g, now in re.findall(r"-\s*name:\s*([^\n]+)\n\s+now:\s*([^\n]+)", text)]
+            node_names = []
+            if current_uid:
+                profile_path = root / "profiles" / f"{current_uid}.yaml"
+                if profile_path.is_file():
+                    ptxt = profile_path.read_text(errors="ignore")
+                    raw_names = (re.findall(r"-\s*\{[^}]*?\bname:\s*([^,\n}]+)", ptxt) +
+                                 re.findall(r"^\s*-\s*name:\s*(.+)$", ptxt, re.M))
+                    seen = set()
+                    for raw in raw_names:
+                        clean = raw.strip().strip("'\"")
+                        if clean and clean not in seen:
+                            seen.add(clean)
+                            node_names.append(clean)
+            return {
+                "selected_groups": groups,
+                "nodes": [{"name": n,
+                           "matches_country_name": any(s in n.lower() for s in terms),
+                           "matches_region_fallback": any(s in n.lower() for s in fallback_terms)}
+                          for n in node_names],
+            }
+        except OSError:
+            continue
+    return None
+
+
 def run(cmd):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
@@ -80,8 +181,10 @@ def avd_inventory(names, sdk=None):
             writable = probe_writable(directory)
             image = cfg.get("image.sysdir.1")
             tag_id = cfg.get("tag.id", "")
-            item.update(config=str(directory / "config.ini"), directory=str(directory), abi=cfg.get("abi.type"),
-                        tag_id=tag_id or None,
+            target = meta.get("target") or cfg.get("target")
+            item.update(ini_file=str(home / (name + ".ini")), config=str(directory / "config.ini"),
+                        directory=str(directory), abi=cfg.get("abi.type"),
+                        target=target or None, tag_id=tag_id or None,
                         page_size_16k="ps16k" in f"{tag_id} {image or ''}".lower(),
                         google_play=cfg.get("PlayStore.enabled", "false").lower() == "true",
                         snapshot_state=avd_snapshot_state(directory), directory_writable=writable["writable"])
@@ -93,7 +196,10 @@ def avd_inventory(names, sdk=None):
                 missing = [n for n in ("system.img", "ramdisk.img") if not (image_dir / n).is_file()]
                 if not any((image_dir / n).is_file() for n in ("kernel-ranchu", "kernel-qemu")):
                     missing.append("kernel-ranchu or kernel-qemu")
-                item.update(image_directory=str(image_dir), missing_image_files=missing)
+                expected_target = next((p for p in image_dir.parts if p.startswith("android-")), None)
+                target_corrupted = bool(target == "android-0" or (expected_target and target and target != expected_target))
+                item.update(image_directory=str(image_dir), missing_image_files=missing,
+                            expected_target=expected_target, target_corrupted=target_corrupted)
                 if not missing:
                     item["configured"] = True
                     break
@@ -183,6 +289,9 @@ def main():
     result["research_tools_are_route_specific"] = True
     emit("环境检查 · 设备", "running", "检测已连接真机/模拟器，并核查已有 AVD 配置与系统镜像。")
     result.update(device_check(tools, args.sdk))
+    if tools["emulator"]:
+        accel = run([tools["emulator"], "-accel-check"])
+        result["emulator_acceleration"] = {**accel, "available": accel.get("returncode") == 0}
     if result["device_gate"]["status"] != "passed":
         result["status"] = "failed"
         result["downstream_allowed"] = False
@@ -221,18 +330,24 @@ def main():
             op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             with op.open(urllib.request.Request(args.controller.rstrip("/") + "/proxies", headers=headers), timeout=10) as r:
                 proxies = json.load(r).get("proxies", {})
-            aliases = {"PH": ["菲律宾", "philippines", "manila", "🇵🇭"], "MX": ["墨西哥", "mexico", "🇲🇽"],
-                       "VN": ["越南", "vietnam", "hanoi", "🇻🇳"], "TH": ["泰国", "thailand", "bangkok", "🇹🇭"]}
-            terms = aliases.get((args.country or "").upper(), [])
+            terms, fallback_terms = country_terms(args.country)
             result["vpn_nodes"] = [{"name": name, "type": meta.get("type"), "current": meta.get("now"),
                                     "choices": meta.get("all"),
-                                    "matches_country_name": any(s in name.lower() for s in terms)}
+                                    "matches_country_name": any(s in name.lower() for s in terms),
+                                    "matches_region_fallback": any(s in name.lower() for s in fallback_terms)}
                                    for name, meta in proxies.items()]
             result["country_match_is_exit_verification"] = False
             result["vpn_node_inventory_status"] = "read_from_controller"
         except Exception as exc:
             result["controller_error"] = {"type": type(exc).__name__, "http_status": getattr(exc, "code", None)}
             result["vpn_node_inventory_status"] = "controller_unavailable"
+    if result["vpn_node_inventory_status"] in ("not_checked", "controller_unavailable"):
+        local_vpn = local_clash_inventory(args.country)
+        if local_vpn:
+            result["vpn_local_profile"] = local_vpn
+            result["country_match_is_exit_verification"] = False
+            if result["vpn_node_inventory_status"] == "not_checked":
+                result["vpn_node_inventory_status"] = "read_from_local_profile"
     result["status"] = "passed"
     result["downstream_allowed"] = True
     result["missing_optional_tools"] = [n for n in ("aapt", "apksigner", "java", "apkeep") if not tools[n]]

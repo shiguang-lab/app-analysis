@@ -43,11 +43,15 @@ class PackageAnalysisTests(unittest.TestCase):
 
     def test_inventory_distinguishes_shell_signals_and_frontend_assets(self):
         apk = self.apk("base.apk", {"assets/index.android.bundle": b"binary fixture", "assets/web/index.html": b"<html/>",
+                                    "assets/supplierconfig.json": b"{}",
+                                    "classes.dex": b"dex\n035\0" + bytes(104) + b"Lcom/pairip/application/Application;",
                                     "lib/arm64-v8a/libhermes.so": b"fixture", "lib/arm64-v8a/libDexHelper.so": b"fixture"})
         report = inspect_package.inventory([apk])
         self.assertIn("hermes-runtime", report["framework_indicators"])
         self.assertIn("bundled-html", report["framework_indicators"])
+        self.assertIn("pairip-protection", report["framework_indicators"])
         self.assertEqual(report["files"][0]["shell_filename_signals"], ["lib/arm64-v8a/libDexHelper.so"])
+        self.assertIn("assets/supplierconfig.json", [a["path"] for a in report["files"][0]["frontend_assets"]])
 
     def test_identical_apk_copy_has_no_payload_differences(self):
         a = self.apk("one.apk", {"classes.dex": b"fixture"})

@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 import download
+import export_device
 import preflight
 
 
@@ -136,6 +137,44 @@ class AvdInventoryTests(unittest.TestCase):
                 self.assertTrue(item_16k["page_size_16k"])
                 self.assertEqual(item_16k["tag_id"], "google_apis_playstore_ps16k")
 
+    def test_avd_inventory_flags_corrupted_android_zero_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "avd"
+            directory = home / "HolaFina_Magisk.avd"
+            directory.mkdir(parents=True)
+            image = root / "system-images/android-37.1/google_apis_playstore_ps16k/arm64-v8a"
+            image.mkdir(parents=True)
+            for name in ("system.img", "ramdisk.img", "kernel-ranchu"):
+                (image / name).touch()
+            (home / "HolaFina_Magisk.ini").write_text(f"path={directory}\ntarget=android-0\n")
+            (directory / "config.ini").write_text(f"image.sysdir.1={image}\nabi.type=arm64-v8a\n")
+            with mock.patch.dict("os.environ", {"ANDROID_AVD_HOME": str(home)}, clear=True):
+                item = preflight.avd_inventory(["HolaFina_Magisk"])[0]
+                self.assertTrue(item["target_corrupted"])
+                self.assertEqual(item["expected_target"], "android-37.1")
+
+    def test_local_clash_inventory_matches_country_and_region_without_leaking_secrets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profiles").mkdir()
+            (root / "profiles.yaml").write_text(
+                "current: test_uid\nitems:\n  - uid: test_uid\n    selected:\n      - name: 🚀 海外\n        now: 首尔\n")
+            (root / "profiles/test_uid.yaml").write_text(
+                "proxies:\n  - name: 首尔\n    server: 203.0.113.10\n    uuid: secret-uuid-value\n"
+                "  - name: 硅谷\n    server: 198.51.100.20\n    password: secret-password\n")
+            inv = preflight.local_clash_inventory("MX", root)
+            self.assertIsNotNone(inv)
+            self.assertEqual(inv["selected_groups"], [{"group": "🚀 海外", "current": "首尔"}])
+            nodes = {n["name"]: n for n in inv["nodes"]}
+            self.assertFalse(nodes["首尔"]["matches_country_name"])
+            self.assertFalse(nodes["首尔"]["matches_region_fallback"])
+            self.assertTrue(nodes["硅谷"]["matches_region_fallback"])
+            serialized = json.dumps(inv, ensure_ascii=False)
+            self.assertNotIn("secret-uuid-value", serialized)
+            self.assertNotIn("secret-password", serialized)
+            self.assertNotIn("203.0.113.10", serialized)
+
     def test_find_tool_resolves_cmdline_tools_when_not_on_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             sdk = Path(tmp) / "sdk"
@@ -145,6 +184,17 @@ class AvdInventoryTests(unittest.TestCase):
             avdmanager.chmod(0o755)
             with mock.patch("apk_utils.shutil.which", return_value=None):
                 self.assertEqual(preflight.find_tool("avdmanager", str(sdk)), str(avdmanager))
+
+    def test_find_tool_resolves_user_venv_binaries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_home = Path(tmp)
+            frida_bin = fake_home / ".venv-frida/bin/frida"
+            frida_bin.parent.mkdir(parents=True)
+            frida_bin.write_text("#!/bin/sh\n")
+            frida_bin.chmod(0o755)
+            with mock.patch("apk_utils.shutil.which", return_value=None), \
+                 mock.patch("apk_utils.Path.home", return_value=fake_home):
+                self.assertEqual(preflight.find_tool("frida"), str(frida_bin))
 
     def test_write_probe_reports_denied_sandbox_writes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -204,6 +254,20 @@ class FailFastTests(unittest.TestCase):
                  contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(download.main(), 4)
             network.assert_not_called()
+            self.assertFalse(out.exists())
+            self.assertEqual(json.loads(output.getvalue())["status"], "environment_failed")
+
+    def test_device_exporter_stops_before_creating_directory_when_gate_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "must-not-be-created"
+            output = io.StringIO()
+            with mock.patch("sys.argv", ["export_device.py", "--serial", "offline-dev", "--package", "com.example.app", "--out", str(out)]), \
+                 mock.patch.object(export_device, "find_tool", return_value="fixture-adb"), \
+                 mock.patch.object(export_device, "require_device_environment", side_effect=ValueError("fixture device gate failed")), \
+                 mock.patch.object(export_device, "adb_run") as adb_mock, \
+                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(export_device.main(), 4)
+            adb_mock.assert_not_called()
             self.assertFalse(out.exists())
             self.assertEqual(json.loads(output.getvalue())["status"], "environment_failed")
 

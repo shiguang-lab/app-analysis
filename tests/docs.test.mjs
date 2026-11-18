@@ -32,6 +32,7 @@ async function markdownFiles(directory) {
 test('local Markdown links resolve and anchors exist', async () => {
   const files = [
     path.join(root, 'README.md'),
+    path.join(root, 'USAGE.md'),
     ...await markdownFiles(path.join(root, 'skills')),
     ...await markdownFiles(path.join(root, 'resources/app-analysis')),
   ];

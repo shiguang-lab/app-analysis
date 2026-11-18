@@ -213,6 +213,7 @@ class ArchiveAndMetadataTests(unittest.TestCase):
         out = self.root / "export"
         with mock.patch("sys.argv", ["export_device.py", "--serial", "chosen-device", "--package", "com.example.app", "--out", str(out)]), \
              mock.patch.object(export_device, "find_tool", return_value="fixture-adb"), \
+             mock.patch.object(export_device, "require_device_environment", return_value={"status": "passed"}), \
              mock.patch.object(export_device, "adb_run", side_effect=fake_adb), \
              contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(export_device.main(), 0)
@@ -234,6 +235,7 @@ class ArchiveAndMetadataTests(unittest.TestCase):
         out = self.root / "failed-export"
         with mock.patch("sys.argv", ["export_device.py", "--serial", "chosen-device", "--package", "com.example.app", "--out", str(out)]), \
              mock.patch.object(export_device, "find_tool", return_value="fixture-adb"), \
+             mock.patch.object(export_device, "require_device_environment", return_value={"status": "passed"}), \
              mock.patch.object(export_device, "adb_run", side_effect=fake_adb), \
              contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(export_device.main(), 1)

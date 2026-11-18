@@ -47,8 +47,8 @@
    python3 scripts/preflight.py --country PH --controller http://127.0.0.1:9090
    ```
 
-   `9090` 只是示例，不能盲猜本机端口。需要 secret 时使用 `--secret-env <已有私密环境变量名>`；不要把 secret 放命令行、聊天或归档。脚本仅对 loopback 发出 `GET /proxies`，不调用变更接口。
-4. 区分“节点名字匹配国家”与“当前请求出口确在该国家”。节点名、全局组选中值都不能证明请求已经过它。
+   `9090` 只是示例，不能盲猜本机端口。需要 secret 时使用 `--secret-env <已有私密环境变量名>`；不要把 secret 放命令行、聊天或归档。脚本仅对 loopback 发出 `GET /proxies`，不调用变更接口。若客户端未开启 HTTP `external-controller`（返回 `controller_unavailable`），`preflight.py` 会自动只读扫描本机 Clash/Mihomo 配置目录中的 `profiles.yaml` 与当前激活 profile 的策略组名、当前选中项（`now`）与节点名称列表（输出于 `vpn_local_profile`，过滤服务器地址、端口、UUID、密码与订阅 URL）。
+4. 区分“节点名字匹配国家”与“当前请求出口确在该国家”。节点名、全局组选中值都不能证明请求已经过它。当第 3 步取包或第 5–8 步访问目标 App 远端 H5/API 遇到 CloudWAF / GeoIP 地区拦截（如返回 HTTP `418` `The access is blocked` 或 `403` 地区阻断）时，同样按下方流程盘点目标国家/地区或同区域候选节点（见 `preflight.py` 的 `matches_country_name` 与 `matches_region_fallback`）并向用户提出切换确认，不将其误判为应用自身故障或普通未登录（`110001`）。
 
 有候选时，先记录当前组/节点、系统代理或 TUN 状态、脚本代理、模拟器代理；向用户提出具体变更，例如：
 
@@ -86,15 +86,16 @@
    - 若已有可 `adb root` 的 `google_apis`/`userdebug` AVD 或已授权的 root 测试真机，直接复用；
    - 若本机只有 `google_apis_playstore`（`user` 构建）镜像与日常 AVD（如 `Pixel_10_Pro`），**严禁修改原有 AVD 或原系统镜像目录下的 `ramdisk.img`，也严禁去 `sdkmanager` 下载新的 `google_apis` 系统镜像**；必须直接复用本机已安装的这套 Play 商店镜像新建任务专用隔离 AVD，并对其 `ramdisk.img` 副本做 Magisk 修补后通过 `-ramdisk` 参数启动。
 3. **本机已有镜像（含 Play 商店镜像）的 `-ramdisk` 副本 Root 与 Frida 挂载标准流程（跨架构/页大小/版本通用，无需请求授权，直接执行）**：
-   - **步骤 1（新建隔离 AVD 并复制 `ramdisk.img`）**：用 `avdmanager create avd -n <Task_Magisk> -k "<本机已有system-image包名>" -d pixel_7` 创建独立 AVD（非登录 shell 下若 `PATH` 不含 SDK 工具，直接按 `environment.json` 的 `sdk_roots` 调用 `<sdk>/cmdline-tools/latest/bin/avdmanager` 与 `<sdk>/emulator/emulator`）；将原镜像目录下的 `ramdisk.img` 复制为 `<Task_Magisk>.avd/ramdisk-stock.img`。
-   - **步骤 2（修补模拟器 `ramdisk` 副本，兼容 4KB/16KB 页大小与不同 Magisk 版本）**：
+   - **步骤 1（新建隔离 AVD、修正 `target` 并复制 `ramdisk.img`）**：用 `avdmanager create avd -n <Task_Magisk> -k "<本机已有system-image包名>"` 创建独立 AVD（可按 `avdmanager list device` 选用本机存在的手机 profile，或从已有 AVD 的 `config.ini` 同步屏幕尺寸与密度；非登录 shell 下直接按 `environment.json` 的 `sdk_roots` 调用 `avdmanager` 与 `emulator`）。**创建后立即根据 `environment.json` 中记录的 AVD `ini_file` 与 `config` 路径检查 `target=` 字段**：在 `android-36.1`/`android-37.1` 等带小数点的系统镜像上，`avdmanager` 会写出 `target=android-0`（`preflight.py` 会标记 `target_corrupted=true` 并给出 `expected_target`），导致模拟器（`_avdInfo_getApiLevel < 21`）禁用硬件加速并报 `hvf is not enabled` / `mprotect failed: Permission denied` 卡死；发现 `target_corrupted` 或缺失 `target=` 时，先将其修正为 `expected_target`（即 `target=android-<镜像版本>`），再将 `image_directory` 下的 `ramdisk.img` 复制为 `<Task_Magisk>.avd/ramdisk-stock.img`。
+   - **步骤 2（修补模拟器 `ramdisk` 副本，兼容多段拼接 `cpio`、4KB/16KB 页大小与不同 Magisk 版本）**：
      - **4KB 与 16KB（`ps16k`）页大小兼容**：Android 15/16+ 常见 `ps16k`（16KB 页大小，如 `google_apis_playstore_ps16k`，见 `preflight` 的 `page_size_16k`）镜像要求 `/init`（`libmagiskinit.so`）具备 `0x4000`（16KB）ELF LOAD 段对齐；旧版 Magisk（如 `v28.x` 及更早）为 4KB（`0x1000`）对齐，在 `ps16k` 镜像上会因内核拒绝加载 `/init` 导致模拟器永久停留在 `adb: device offline`。**统一优先选用支持 16KB 页对齐的 Magisk `v30.0+`/`v31.1+`（向下兼容 4KB 页大小镜像；优先选用官方 `app-debug.apk` 以便步骤 3 免 UI 交互授权）**。
-     - **从 Magisk 安装包提取对应 ABI（`arm64-v8a` 或 `x86_64`）组件并按实际格式修补**：注意模拟器 `ramdisk.img` 是无 Android boot header 的压缩 `cpio`（不能直接跑 `boot_patch.sh` 的 `unpack`），按以下通用顺序修补副本：
-       1. 运行 `magiskboot decompress ramdisk-stock.img ramdisk.cpio`，从输出日志读取原始压缩格式 `RAMDISK_FMT`（常见为 `lz4_legacy` 或 `gzip`；未识别时默认 `lz4_legacy`，重打包时保持原格式）；
+     - **多段拼接 `ramdisk.img`（Generic + Vendor Ramdisk）拆分与重拼**：Android 13–16+（GKI）模拟器镜像的 `ramdisk-stock.img` 常由**两段或多段拼接的压缩 `cpio` 帧**组成（第 1 段偏移 `0` 为含 `/init` 的通用 ramdisk；第 2 段含 `first_stage_ramdisk/fstab.ranchu` 与 `lib/modules/virtio_*.ko` 等关键虚拟化驱动），而 `magiskboot cpio` 重打包时会在第 1 段 `TRAILER!!!` 处截断，直接丢弃第 2 段驱动与 `fstab.ranchu`，导致模拟器开机无法挂载分区与 `vsock`、永久卡在 `adb: offline`。因此**在解压前必须先检测 `ramdisk-stock.img` 偏移 `4` 之后是否存在第 2 个压缩帧魔数**（`lz4_legacy` 魔数 `\x02\x21\x4c\x18` 或 `gzip` 魔数 `\x1f\x8b\x08`）：若存在多段，先按第 2 段起始偏移拆分为 `ramdisk-generic.img`（首段）与 `ramdisk-vendor.img`（后续段），仅对 `ramdisk-generic.img` 执行下述修补，最后将重压缩生成的首段与原始 `ramdisk-vendor.img` 首尾拼接为 `<Task_Magisk>.avd/ramdisk-magisk.img`（单段镜像则直接修补）。
+     - **从 Magisk 安装包提取对应 ABI（`arm64-v8a` 或 `x86_64`）组件并按实际格式修补**：注意模拟器 `ramdisk` 是无 Android boot header 的压缩 `cpio`（不能直接跑 `boot_patch.sh` 的 `unpack`），按以下通用顺序修补首段（或单段）副本：
+       1. 运行 `magiskboot decompress <ramdisk-generic.img或ramdisk-stock.img> ramdisk.cpio`，从输出日志读取原始压缩格式 `RAMDISK_FMT`（常见为 `lz4_legacy` 或 `gzip`；未识别时默认 `lz4_legacy`，重打包时保持原格式）；
        2. 执行 `magiskboot compress=xz lib/$ABI/libmagisk.so magisk.xz`，并**动态检测附加组件**（Magisk `v29+`/`v31+` 含 `lib/$ABI/libinit-ld.so` 则压缩为 `init-ld.xz`；Magisk `v28` 及更早含 `assets/stub.apk` 则压缩为 `stub.xz`，哪个存在就注入哪个，不硬编码单一版本文件列表）；
        3. 动态确定 `PREINITDEVICE`：若已有同镜像在线实例可执行 `./magisk --preinit-device` 获取实际分区名（不同镜像/内核可能为 `metadata`、`vdd1` 或 `userdata`），离线或返回空时回退为 `metadata`；生成含 `KEEPVERITY=false`、`KEEPFORCEENCRYPT=false`、`RECOVERYMODE=false`、`PREINITDEVICE=<动态探测值或metadata>` 及 `SHA1=<原cpio的sha1>` 的 `config` 文件；
        4. 执行 `magiskboot cpio ramdisk.cpio`：先完成 `"backup ramdisk.cpio.orig" "mkdir 0750 overlay.d" "mkdir 0750 overlay.d/sbin" "add 0644 overlay.d/sbin/magisk.xz magisk.xz"`，再将实际存在的 `init-ld.xz`（`add 0644 overlay.d/sbin/init-ld.xz init-ld.xz`）或 `stub.xz`（`add 0644 overlay.d/sbin/stub.xz stub.xz`）加入，最后执行 `"patch" "mkdir 000 .backup" "add 000 .backup/.magisk config"`；
-       5. 执行 `magiskboot compress=$RAMDISK_FMT ramdisk.cpio <Task_Magisk>.avd/ramdisk-magisk.img`。
+       5. 执行 `magiskboot compress=$RAMDISK_FMT ramdisk.cpio ramdisk-patched-generic.img`；若原 `ramdisk-stock.img` 含多段，执行 `cat ramdisk-patched-generic.img ramdisk-vendor.img > <Task_Magisk>.avd/ramdisk-magisk.img`（单段则直接输出到 `ramdisk-magisk.img`）。
    - **步骤 3（有界启动轮询、多路径 `su` 探测与免坐标激活 Shell Root 及 `frida-server`）**：
      1. **有界启动轮询**：后台启动 `emulator -avd <Task_Magisk> -ramdisk <Task_Magisk>.avd/ramdisk-magisk.img -no-snapshot-load -no-boot-anim`，用有界循环（如最多 45 次 × 2 秒 = 90 秒）检查模拟器进程存活、`adb -s <serial> get-state` 与 `getprop sys.boot_completed=1`（**严禁裸跑 `adb wait-for-device`**；若持续 `offline` 或超时未就绪，立即终止该进程并检查日志中的 `/init` 页大小或 `ramdisk` 格式报错）；
      2. **多路径探测 `su` 与激活 Shell（`uid=2000`）Root**：不同 Android 版本或 Root 实现下 `su` 可能位于 `/debug_ramdisk/su`、`/sbin/su`、`/system/bin/su` 或 `/system/xbin/su`，先通过 `SU_BIN=$(adb -s <serial> shell 'for p in /debug_ramdisk/su /sbin/su /system/xbin/su /system/bin/su; do [ -x "$p" ] && echo "$p" && break; done' | tr -d '\r\n')` 动态获取路径。安装 Magisk APK 并启动一次 `com.topjohnwu.magisk/.ui.MainActivity` 完成环境初始化；若 `$SU_BIN -c id` 返回 `Permission denied`（`su: request rejected (2000)`）：

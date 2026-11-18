@@ -10,6 +10,7 @@ import sys
 import zipfile
 
 from apk_utils import find_tool, sha256, write_json
+from preflight import require_device_environment
 from progress import emit
 
 
@@ -33,11 +34,18 @@ def main():
     adb = find_tool("adb", args.sdk)
     if not adb:
         p.error("adb is missing; inspect existing SDK before installing platform-tools")
+    try:
+        environment = require_device_environment(args.sdk)
+    except ValueError as exc:
+        emit("环境检查", "failed", str(exc))
+        print(json.dumps({"status": "environment_failed", "error": str(exc), "downstream_allowed": False}, ensure_ascii=False))
+        return 4
     out = Path(args.out).expanduser().resolve()
     out.mkdir(parents=True, exist_ok=False)
     report = {"source": "installed_device", "requested_package": args.package, "device_serial": args.serial,
               "requested_version_code": args.version_code,
-              "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "files": [], "status": "attempting"}
+              "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "files": [],
+              "status": "attempting", "device_gate": environment}
     emit("获取安装包", "running", f"从已选择设备导出 {args.package} 的完整 APK 清单。")
     try:
         paths = [s.removeprefix("package:").strip() for s in adb_run(adb, args.serial, "shell", "pm", "path", args.package).splitlines()

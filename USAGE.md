@@ -10,11 +10,21 @@
 
 ---
 
-## 二、安装
+## 二、环境依赖
 
-前置条件：本机需有 **Node.js >=22.12**、**Python >=3.9**，以及至少一台 **已授权 Android 真机或可用的完整模拟器（AVD）**。
+- **Node.js** `>=22.12`
+- **Python** `>=3.9`（长图拼接需 `Pillow`）
+- **Android SDK**：`adb`、`emulator`、`aapt`、`apksigner`（及 `java`）
+- **Android 设备或模拟器（必选其一）**：
+  - 已授权且可响应的 Android 真机 / 在线模拟器；
+  - 配置与系统镜像完整、且目录可写的 AVD。
+- **按需分析工具**（工作流按技术栈自动检测或补齐）：`jadx`、`frida` / `frida-server`、`cmake` / `clang`（Flutter AOT `Blutter`）
 
-执行安装命令（默认安装到 `~/.agents/skills/app-analysis/SKILL.md`）：
+---
+
+## 三、安装
+
+执行默认安装命令（默认安装到 `~/.agents/skills/app-analysis/SKILL.md`）：
 
 ```sh
 npx -y --prefer-online app-analysis@latest skill install
@@ -36,7 +46,7 @@ npx -y --prefer-online app-analysis@latest skill install --dir "$HOME/.claude/sk
 
 ---
 
-## 三、使用
+## 四、使用
 
 在 AI 客户端中直接给出 **国家/市场 + App 名称**（有包名/链接也可以直接附带）和想做的事即可，AI 会自动补齐其余信息并按流程执行：
 

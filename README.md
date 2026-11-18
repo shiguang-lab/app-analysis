@@ -42,11 +42,13 @@ npx -y --prefer-online app-analysis@latest run preflight --mode research --resou
 
 | 路径 | 职责 |
 |---|---|
+| `USAGE.md` | 面向使用者的功能、环境依赖、安装与使用说明 |
 | `skills/app-analysis/SKILL.md` | 安装到客户端的薄入口 |
 | `src/` | npm CLI：安装、资源解析、校验、脚本运行 |
 | `resources/app-analysis/references/` | 主流程和各阶段操作文档 |
 | `resources/app-analysis/scripts/` | 原有 Python 脚本及回归测试 |
 | `resources/app-analysis/examples/` | 业务报告模板 |
+| `evals/` | 业务调研闭环与审查门禁回归评测用例 |
 | `scripts/build-resources.mjs` | 生成确定性的资源包与清单 |
 | `.github/workflows/publish.yml` | tag 触发的构建、GitHub Release 和 npm 发布 |
 | `scripts/release.mjs` | tag 校验、打包、校验和及发布资产核对 |
