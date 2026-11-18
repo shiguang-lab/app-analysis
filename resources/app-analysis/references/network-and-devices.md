@@ -25,7 +25,7 @@
    adb -s emulator-5554 shell getprop sys.boot_completed
    ```
 
-   `sys.boot_completed=1` 后才能在正文说该 AVD 已在线，并把 `boot_verified` 记为 true；`emulator-5554` 只是示例，以实际 serial 为准。命令要作为后台任务运行并保留日志，不要阻塞主流程；启动失败保留原始 `FATAL`/`WARNING` 行作为证据。
+   `sys.boot_completed=1` 后才能在正文说该 AVD 已在线，并把 `boot_verified` 记为 true；`emulator-5554` 只是示例，以实际 serial 为准。命令要作为后台任务运行并保留日志，不要阻塞主流程；**严禁裸跑无超时的 `adb wait-for-device` 或无限 `while` 循环**（当模拟器卡在 `offline` 或 `/init` 崩溃时，`adb wait-for-device` 会永久挂起），必须使用带次数/时间上限的有界轮询（如最多 45 次 × 2 秒 = 90 秒）同时检查模拟器进程存活、`adb -s <serial> get-state` 与 `sys.boot_completed`，超时或进程退出时立即中止并读取启动日志排错，保留原始 `FATAL`/`WARNING` 行作为证据。
 
 3. 用户已在自己终端启动的 AVD 只通过 `adb -s SERIAL` 交互：不要从受限会话 `kill`、重启或替换它，杀进程后本会话起不回来，只能再请用户启动。收尾时保持它在运行并明确说明交还，不主动关闭。
 4. 快照可疑（`snapshot_state.artifacts` 含 `bootcompleted.ini`/`snapshots` 且上次未正常退出）时，加 `-no-snapshot-load` 冷启动一次即可；不要删除快照目录，也不要 `-wipe-data`。
@@ -85,18 +85,22 @@
 2. **复用本机已有镜像，零新镜像下载、零原环境污染**：
    - 若已有可 `adb root` 的 `google_apis`/`userdebug` AVD 或已授权的 root 测试真机，直接复用；
    - 若本机只有 `google_apis_playstore`（`user` 构建）镜像与日常 AVD（如 `Pixel_10_Pro`），**严禁修改原有 AVD 或原系统镜像目录下的 `ramdisk.img`，也严禁去 `sdkmanager` 下载新的 `google_apis` 系统镜像**；必须直接复用本机已安装的这套 Play 商店镜像新建任务专用隔离 AVD，并对其 `ramdisk.img` 副本做 Magisk 修补后通过 `-ramdisk` 参数启动。
-3. **本机已有镜像（含 Play 商店镜像）的 `-ramdisk` 副本 Root 与 Frida 挂载标准流程（无需请求授权，直接执行）**：
-   - **步骤 1（新建隔离 AVD 并复制 `ramdisk.img`）**：用 `avdmanager create avd -n <Task_Magisk> -k "<本机已有system-image包名>" -d pixel_7` 创建独立 AVD；将原镜像目录下的 `ramdisk.img` 复制为 `<Task_Magisk>.avd/ramdisk-stock.img`。
-   - **步骤 2（修补裸 `lz4_legacy` 格式的模拟器 `ramdisk` 副本）**：从 `Magisk.apk` 解出对应架构（`arm64-v8a` 或 `x86_64`）的 `libmagiskboot.so`、`libmagiskinit.so`、`libmagisk.so`、`libinit-ld.so` 与 `assets/stub.apk`。注意模拟器 `ramdisk.img` 是无 Android boot header 的 `lz4_legacy` 压缩 `cpio`（不能直接跑 `boot_patch.sh` 的 `unpack`），按以下顺序修补副本：
-     1. `magiskboot decompress ramdisk-stock.img ramdisk.cpio`；
-     2. `magiskboot compress=xz magisk magisk.xz`、`compress=xz stub.apk stub.xz`、`compress=xz init-ld init-ld.xz`；
-     3. 生成包含 `KEEPVERITY=false`、`KEEPFORCEENCRYPT=false`、`RECOVERYMODE=false`、**`PREINITDEVICE=metadata`**（Android 11+ 模拟器必带，否则开机报 `Magisk environment incomplete`）及 `SHA1=<原cpio的sha1>` 的 `config` 文件；
-     4. 执行 `magiskboot cpio ramdisk.cpio "backup ramdisk.cpio.orig" "mkdir 0750 overlay.d" "mkdir 0750 overlay.d/sbin" "add 0644 overlay.d/sbin/magisk.xz magisk.xz" "add 0644 overlay.d/sbin/stub.xz stub.xz" "add 0644 overlay.d/sbin/init-ld.xz init-ld.xz" "patch" "mkdir 000 .backup" "add 000 .backup/.magisk config"`；
-     5. `magiskboot compress=lz4_legacy ramdisk.cpio <Task_Magisk>.avd/ramdisk-magisk.img`。
-   - **步骤 3（`-ramdisk` 启动并激活 Shell Root 与 `frida-server`）**：
-     1. 以 `emulator -avd <Task_Magisk> -ramdisk <Task_Magisk>.avd/ramdisk-magisk.img -no-snapshot-load -no-boot-anim` 启动隔离 AVD；
-     2. 安装 `Magisk.apk` 并启动一次 `com.topjohnwu.magisk/.ui.MainActivity` 完成环境初始化；若 `/debug_ramdisk/su -c id` 返回 `Permission denied`（日志 `su: request rejected (2000)`），在 Magisk App 底部切到 **Superuser** 页打开 `[SharedUID] Shell`（`com.android.shell`）开关（或点击弹窗 Grant），确认 `/debug_ramdisk/su -c id` 返回 `uid=0(root)`；
-     3. 将匹配 ABI（`ro.product.cpu.abilist`）与本机 `frida` 版本的 `frida-server` 推入 `/data/local/tmp/frida-server`，通过 `/debug_ramdisk/su -c 'chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D'` 启动，收尾时关闭隔离模拟器并清理转发端口。
+3. **本机已有镜像（含 Play 商店镜像）的 `-ramdisk` 副本 Root 与 Frida 挂载标准流程（跨架构/页大小/版本通用，无需请求授权，直接执行）**：
+   - **步骤 1（新建隔离 AVD 并复制 `ramdisk.img`）**：用 `avdmanager create avd -n <Task_Magisk> -k "<本机已有system-image包名>" -d pixel_7` 创建独立 AVD（非登录 shell 下若 `PATH` 不含 SDK 工具，直接按 `environment.json` 的 `sdk_roots` 调用 `<sdk>/cmdline-tools/latest/bin/avdmanager` 与 `<sdk>/emulator/emulator`）；将原镜像目录下的 `ramdisk.img` 复制为 `<Task_Magisk>.avd/ramdisk-stock.img`。
+   - **步骤 2（修补模拟器 `ramdisk` 副本，兼容 4KB/16KB 页大小与不同 Magisk 版本）**：
+     - **4KB 与 16KB（`ps16k`）页大小兼容**：Android 15/16+ 常见 `ps16k`（16KB 页大小，如 `google_apis_playstore_ps16k`，见 `preflight` 的 `page_size_16k`）镜像要求 `/init`（`libmagiskinit.so`）具备 `0x4000`（16KB）ELF LOAD 段对齐；旧版 Magisk（如 `v28.x` 及更早）为 4KB（`0x1000`）对齐，在 `ps16k` 镜像上会因内核拒绝加载 `/init` 导致模拟器永久停留在 `adb: device offline`。**统一优先选用支持 16KB 页对齐的 Magisk `v30.0+`/`v31.1+`（向下兼容 4KB 页大小镜像；优先选用官方 `app-debug.apk` 以便步骤 3 免 UI 交互授权）**。
+     - **从 Magisk 安装包提取对应 ABI（`arm64-v8a` 或 `x86_64`）组件并按实际格式修补**：注意模拟器 `ramdisk.img` 是无 Android boot header 的压缩 `cpio`（不能直接跑 `boot_patch.sh` 的 `unpack`），按以下通用顺序修补副本：
+       1. 运行 `magiskboot decompress ramdisk-stock.img ramdisk.cpio`，从输出日志读取原始压缩格式 `RAMDISK_FMT`（常见为 `lz4_legacy` 或 `gzip`；未识别时默认 `lz4_legacy`，重打包时保持原格式）；
+       2. 执行 `magiskboot compress=xz lib/$ABI/libmagisk.so magisk.xz`，并**动态检测附加组件**（Magisk `v29+`/`v31+` 含 `lib/$ABI/libinit-ld.so` 则压缩为 `init-ld.xz`；Magisk `v28` 及更早含 `assets/stub.apk` 则压缩为 `stub.xz`，哪个存在就注入哪个，不硬编码单一版本文件列表）；
+       3. 动态确定 `PREINITDEVICE`：若已有同镜像在线实例可执行 `./magisk --preinit-device` 获取实际分区名（不同镜像/内核可能为 `metadata`、`vdd1` 或 `userdata`），离线或返回空时回退为 `metadata`；生成含 `KEEPVERITY=false`、`KEEPFORCEENCRYPT=false`、`RECOVERYMODE=false`、`PREINITDEVICE=<动态探测值或metadata>` 及 `SHA1=<原cpio的sha1>` 的 `config` 文件；
+       4. 执行 `magiskboot cpio ramdisk.cpio`：先完成 `"backup ramdisk.cpio.orig" "mkdir 0750 overlay.d" "mkdir 0750 overlay.d/sbin" "add 0644 overlay.d/sbin/magisk.xz magisk.xz"`，再将实际存在的 `init-ld.xz`（`add 0644 overlay.d/sbin/init-ld.xz init-ld.xz`）或 `stub.xz`（`add 0644 overlay.d/sbin/stub.xz stub.xz`）加入，最后执行 `"patch" "mkdir 000 .backup" "add 000 .backup/.magisk config"`；
+       5. 执行 `magiskboot compress=$RAMDISK_FMT ramdisk.cpio <Task_Magisk>.avd/ramdisk-magisk.img`。
+   - **步骤 3（有界启动轮询、多路径 `su` 探测与免坐标激活 Shell Root 及 `frida-server`）**：
+     1. **有界启动轮询**：后台启动 `emulator -avd <Task_Magisk> -ramdisk <Task_Magisk>.avd/ramdisk-magisk.img -no-snapshot-load -no-boot-anim`，用有界循环（如最多 45 次 × 2 秒 = 90 秒）检查模拟器进程存活、`adb -s <serial> get-state` 与 `getprop sys.boot_completed=1`（**严禁裸跑 `adb wait-for-device`**；若持续 `offline` 或超时未就绪，立即终止该进程并检查日志中的 `/init` 页大小或 `ramdisk` 格式报错）；
+     2. **多路径探测 `su` 与激活 Shell（`uid=2000`）Root**：不同 Android 版本或 Root 实现下 `su` 可能位于 `/debug_ramdisk/su`、`/sbin/su`、`/system/bin/su` 或 `/system/xbin/su`，先通过 `SU_BIN=$(adb -s <serial> shell 'for p in /debug_ramdisk/su /sbin/su /system/xbin/su /system/bin/su; do [ -x "$p" ] && echo "$p" && break; done' | tr -d '\r\n')` 动态获取路径。安装 Magisk APK 并启动一次 `com.topjohnwu.magisk/.ui.MainActivity` 完成环境初始化；若 `$SU_BIN -c id` 返回 `Permission denied`（`su: request rejected (2000)`）：
+        - **免 UI 坐标优先路径（适用 `app-debug.apk`）**：利用 `com.topjohnwu.magisk` 自身 UID 被 `magiskd` 直接放行的特性，执行 `adb -s <serial> shell "run-as com.topjohnwu.magisk $SU_BIN -c '${SU_BIN%/su}/magisk --sqlite \"REPLACE INTO policies (uid, policy, until, logging, notification) VALUES (2000, 2, 0, 1, 1);\"'"` 直接写入策略表，跨任意机型/分辨率免点击激活 Shell Root；
+        - **UI 节点兜底路径（适用非 debuggable 的 release 版 `Magisk.apk`）**：用 `uiautomator dump` 获取界面 XML，按文本/资源 ID 定位授权弹窗或 Magisk **Superuser** 页的 `[SharedUID] Shell`（`com.android.shell`）开关并点击（不硬编码固定分辨率坐标），确认 `$SU_BIN -c id` 返回 `uid=0(root)`；
+     3. **开机后推送并启动 `frida-server`**：因 `-no-snapshot-load` 启动会重置未保存的临时状态，须在 `-ramdisk` 正常开机且 `$SU_BIN -c id` 验证通过后，将匹配 ABI（`ro.product.cpu.abilist`）与本机 `frida` 版本的 `frida-server` 推入 `/data/local/tmp/frida-server`，通过 `$SU_BIN -c 'chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D'` 启动；收尾时关闭并清理临时隔离 AVD 及转发端口。
 4. **何时才需要向用户询问**：仅当本机连任何可匹配的 Android 系统镜像都未安装（确需下载数 GB 镜像）、需要宿主机 `sudo`、或上述隔离 root + Frida 注入实测仍被服务端强校验阻断而只能依赖真实账号/OTP 时，才向用户说明具体阻塞与代价并请求决策。
 
 ## 匿名下载的实际边界

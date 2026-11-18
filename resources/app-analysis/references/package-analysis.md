@@ -15,7 +15,7 @@
 | 普通 DEX | 用现有 JADX 反编译；结合 Manifest、资源 XML 和调用点定位 Activity/Fragment、ViewModel、导航与 Bridge | 某类搜索不到不等于该业务不存在 |
 | 主 DEX 很小、只见壳初始化/加载器 | 记录壳线索，运行原 App 观察业务加载；在任务环境恢复加载后的业务 DEX，再反编译和核对 | 初次 JADX 输出只有壳不等于完整业务已分析 |
 | Hybrid/H5 | 从原生路由/Bridge/日志/实际 WebView 取得真实文档、JS/CSS、动态 chunk、字典和配置；保存 URL、时间、哈希；**业务 API 返回未登录错误（如 `110001`）不代表静态 CDN 资源受阻，单独核查 HTML/JS/CSS 静态域名并提取路由表** | APK 中没有 H5 或官网首页能打开，不等于 App 不使用远程 H5；接口鉴权失败不等于无法取得静态 H5 快照 |
-| Flutter | 查 flutter_assets、NativeAssets/字体/配置、libapp.so 与 libflutter.so；AOT 使用匹配 Dart SDK/架构的 `Blutter`/反汇编定位字符串、会话键名与调用点，并对照 Java 宿主插件（如 `shared_preferences`、`flutter_inappwebview`） | JADX 主要展示宿主/插件，不能当成 Dart 业务源码；但宿主插件正是 Frida 运行时注入的有效边界 |
+| Flutter | 查 flutter_assets、NativeAssets/字体/配置、libapp.so 与 libflutter.so；先从 `libflutter.so` 确认 Dart SDK 版本，优先使用匹配版本的 `Blutter`/反汇编定位对象池、路由与调用点；若遇新版 Dart SDK 尚无预编译 `Blutter` 支持或构建受阻，不中断主流程，直接提取 `libapp.so` 字符串池（路由表、接口路径、存储键名、MethodChannel 名称）并结合 JADX 反编译的未混淆 Java 宿主插件层（如 `GeneratedPluginRegistrant`、`shared_preferences`、`flutter_inappwebview`）及运行时 Frida Hook 交叉还原 | JADX 主要展示宿主/插件，不能当成 Dart 业务源码；但宿主插件正是 Frida 运行时注入与通道观测的有效边界 |
 | React Native/Hermes | 找 JS bundle 和动态包，结合原生 Bridge 与 Hermes 库；用 Hermes 反编译/反汇编工具恢复路由、Store、`AsyncStorage` 与网络合同，必要时在原运行时观察服务和状态模型 | 二进制 bundle 不是空业务；Native API 触发不等于外部 UI 已出现 |
 
 JADX 可使用 `jadx -d <新目录> <APK或恢复DEX>`，以本机实际工具 `--help` 为准。查看反编译警告和关键函数的完整控制流；出现错误时结合原字节码/调用点复核，不把伪代码当无条件可信源。

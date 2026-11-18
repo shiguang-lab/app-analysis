@@ -78,12 +78,15 @@ def avd_inventory(names, sdk=None):
             if not cfg:
                 continue
             writable = probe_writable(directory)
+            image = cfg.get("image.sysdir.1")
+            tag_id = cfg.get("tag.id", "")
             item.update(config=str(directory / "config.ini"), directory=str(directory), abi=cfg.get("abi.type"),
+                        tag_id=tag_id or None,
+                        page_size_16k="ps16k" in f"{tag_id} {image or ''}".lower(),
                         google_play=cfg.get("PlayStore.enabled", "false").lower() == "true",
                         snapshot_state=avd_snapshot_state(directory), directory_writable=writable["writable"])
             if not writable["writable"]:
                 item["write_probe_error"] = writable["write_probe_error"]
-            image = cfg.get("image.sysdir.1")
             image_dirs = ([Path(image).expanduser()] if image and Path(image).is_absolute() else
                           [root / image for root in sdk_roots(sdk)] if image else [])
             for image_dir in image_dirs:

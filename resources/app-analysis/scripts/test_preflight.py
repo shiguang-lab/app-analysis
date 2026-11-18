@@ -126,8 +126,25 @@ class AvdInventoryTests(unittest.TestCase):
                 item = preflight.avd_inventory(["Fixture"])[0]
                 self.assertTrue(item["configured"])
                 self.assertTrue(item["google_play"])
+                self.assertFalse(item["page_size_16k"])
                 self.assertFalse(item["boot_verified"])
                 self.assertTrue(item["directory_writable"])
+                (directory / "config.ini").write_text(
+                    "image.sysdir.1=" + str(image) + "\nabi.type=arm64-v8a\n"
+                    "tag.id=google_apis_playstore_ps16k\nPlayStore.enabled=true\n")
+                item_16k = preflight.avd_inventory(["Fixture"])[0]
+                self.assertTrue(item_16k["page_size_16k"])
+                self.assertEqual(item_16k["tag_id"], "google_apis_playstore_ps16k")
+
+    def test_find_tool_resolves_cmdline_tools_when_not_on_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sdk = Path(tmp) / "sdk"
+            avdmanager = sdk / "cmdline-tools/latest/bin/avdmanager"
+            avdmanager.parent.mkdir(parents=True)
+            avdmanager.write_text("#!/bin/sh\n")
+            avdmanager.chmod(0o755)
+            with mock.patch("apk_utils.shutil.which", return_value=None):
+                self.assertEqual(preflight.find_tool("avdmanager", str(sdk)), str(avdmanager))
 
     def test_write_probe_reports_denied_sandbox_writes(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -165,12 +165,24 @@ def find_tool(name, sdk=None):
     if shutil.which(name):
         return shutil.which(name)
     for root in sdk_roots(sdk):
-        paths = [root / "platform-tools" / name, root / "emulator" / name]
+        paths = [root / "platform-tools" / name, root / "emulator" / name, root / "cmdline-tools/latest/bin" / name]
         paths += sorted(root.glob("build-tools/*/" + name),
                         key=lambda p: tuple(int(n) for n in re.findall(r"\d+", p.parent.name)), reverse=True)
+        paths += sorted(root.glob("cmdline-tools/*/bin/" + name),
+                        key=lambda p: tuple(int(n) for n in re.findall(r"\d+", p.parent.parent.name) or [0]), reverse=True)
         for p in paths:
             if p.is_file() and os.access(p, os.X_OK):
                 return str(p)
+    for extra in (Path("/opt/homebrew/bin"), Path("/usr/local/bin"),
+                  Path.home() / ".local/bin", Path.home() / ".cargo/bin"):
+        candidate = extra / name
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    if name == "java":
+        for jbr in (Path("/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"),
+                    Path.home() / "Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"):
+            if jbr.is_file() and os.access(jbr, os.X_OK):
+                return str(jbr)
     return None
 
 
